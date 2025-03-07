@@ -4,20 +4,47 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import time
 import random
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
-# Define custom headers to avoid being blocked
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.5',
-    'DNT': '1',
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
-}
+# Create a session with retry strategy
+def create_session():
+    session = requests.Session()
+    retry = Retry(
+        total=5,
+        backoff_factor=0.5,
+        status_forcelist=[500, 502, 503, 504],
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    
+    # Set browser-like headers
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Cache-Control': 'max-age=0',
+        'Sec-Ch-Ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+    })
+    return session
+
+# Global session for reuse
+session = create_session()
 
 def get_stock_data(ticker, period='1y', interval='1d'):
     """
-    Fetch stock data from Yahoo Finance
+    Fetch stock data from Yahoo Finance with aggressive refresh
     
     Parameters:
     -----------
@@ -33,84 +60,65 @@ def get_stock_data(ticker, period='1y', interval='1d'):
     pandas.DataFrame
         DataFrame containing stock data
     """
+    global session
+    
+    # Force period lookback to ensure fresh data
+    if period == '1d':
+        # For 1d, use 2d to make sure we get today's data
+        lookback_period = '2d'
+    elif period == '5d':
+        lookback_period = '7d'
+    else:
+        lookback_period = period
+    
     tries = 0
-    max_tries = 3
+    max_tries = 5
     
     while tries < max_tries:
         try:
-            # Add delay to avoid rate limiting
-            time.sleep(random.uniform(0.5, 1.5))
+            # Add delay between retries
+            if tries > 0:
+                time.sleep(tries * 0.5)  # Progressive delay
+                # Refresh session after failed attempts
+                session = create_session()
             
-            # Fetch data with custom headers
-            data = yf.download(
-                ticker, 
-                period=period, 
-                interval=interval,
-                progress=False,
-                threads=False,  # Single-threaded to avoid issues
-                headers=HEADERS
-            )
+            # Print detailed info for debugging
+            print(f"Fetching live data for {ticker} (attempt {tries+1}/{max_tries})")
             
-            # Clean data
-            data = data.dropna()
+            # Directly use yfinance with our session
+            ticker_obj = yf.Ticker(ticker, session=session)
+            data = ticker_obj.history(period=lookback_period, interval=interval)
             
-            # Add return calculations
-            if not data.empty and len(data) > 1:
-                data['Daily_Return'] = data['Close'].pct_change()
-                data['Log_Return'] = np.log(data['Close'] / data['Close'].shift(1))
-            
+            # Check if we got valid data
             if data.empty:
-                print(f"Warning: No data returned for {ticker}, attempt {tries+1}/{max_tries}")
+                print(f"Empty data returned for {ticker}")
                 tries += 1
                 continue
                 
-            return data
+            print(f"Successfully fetched data for {ticker} with {len(data)} rows")
+            print(f"Latest price: ${data['Close'].iloc[-1]:.2f}")
             
+            # Truncate to requested period if needed
+            if period != lookback_period and len(data) > 1:
+                if period == '1d':
+                    data = data.tail(1)
+                elif period == '5d':
+                    data = data.tail(5)
+            
+            # Add return calculations
+            if len(data) > 1:
+                data['Daily_Return'] = data['Close'].pct_change()
+                data['Log_Return'] = np.log(data['Close'] / data['Close'].shift(1))
+            
+            return data
+        
         except Exception as e:
-            print(f"Error fetching data for {ticker} (attempt {tries+1}/{max_tries}): {e}")
+            print(f"Error fetching data for {ticker} (attempt {tries+1}): {str(e)}")
             tries += 1
-            time.sleep(2)  # Wait longer between retries
     
-    # If we get here, all attempts failed
-    print(f"All attempts to fetch data for {ticker} failed")
-    
-    # Return empty DataFrame or dummy data as fallback
-    if ticker.upper() in ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META']:
-        # Return some dummy data for common stocks
-        return get_dummy_data(ticker)
-    
+    # If all attempts fail, return empty DataFrame
+    print(f"Failed to fetch data for {ticker} after {max_tries} attempts")
     return pd.DataFrame()
-
-def get_dummy_data(ticker):
-    """Generate dummy stock data for demonstration purposes"""
-    today = datetime.now()
-    dates = [today - timedelta(days=i) for i in range(252)]
-    dates.reverse()
-    
-    # Generate synthetic prices
-    base_price = {'AAPL': 180.0, 'MSFT': 350.0, 'GOOGL': 140.0, 'AMZN': 130.0, 'META': 300.0}.get(ticker.upper(), 100.0)
-    np.random.seed(hash(ticker) % 10000)  # Consistent seed per ticker
-    
-    # Generate prices with some randomness but trend
-    prices = [base_price]
-    for i in range(1, 252):
-        daily_return = np.random.normal(0.0003, 0.015)  # Mean positive return with volatility
-        prices.append(prices[-1] * (1 + daily_return))
-    
-    # Create DataFrame
-    data = pd.DataFrame({
-        'Open': prices,
-        'High': [p * (1 + np.random.uniform(0, 0.02)) for p in prices],
-        'Low': [p * (1 - np.random.uniform(0, 0.02)) for p in prices],
-        'Close': prices,
-        'Volume': [int(np.random.uniform(1000000, 50000000)) for _ in prices]
-    }, index=dates)
-    
-    # Add returns
-    data['Daily_Return'] = data['Close'].pct_change()
-    data['Log_Return'] = np.log(data['Close'] / data['Close'].shift(1))
-    
-    return data
 
 def get_option_chain(ticker):
     """
@@ -126,113 +134,89 @@ def get_option_chain(ticker):
     tuple
         (calls_df, puts_df) containing option chain data
     """
+    global session
+    
+    # Get fresh session
+    fresh_session = create_session()
+    
     tries = 0
     max_tries = 3
     
     while tries < max_tries:
         try:
-            # Add delay to avoid rate limiting
-            time.sleep(random.uniform(0.5, 1.5))
+            if tries > 0:
+                time.sleep(tries * 1.0)
+                fresh_session = create_session()
             
-            # Fetch data
-            stock = yf.Ticker(ticker)
-            stock._fetch_ticker(headers=HEADERS)
+            # Create ticker object with session
+            stock = yf.Ticker(ticker, session=fresh_session)
             
-            # Get all available expiration dates
+            # Get available expiration dates
             expirations = stock.options
             
             if not expirations:
-                print(f"No option expirations found for {ticker}, attempt {tries+1}/{max_tries}")
+                print(f"No option expiration dates found for {ticker}")
                 tries += 1
                 continue
             
-            # Initialize DataFrames for calls and puts
+            # Only process a subset of expirations to avoid rate limits
+            process_expirations = expirations[:min(5, len(expirations))]
+            print(f"Found {len(expirations)} expiration dates for {ticker}, processing {len(process_expirations)}")
+            
+            # Initialize DataFrames
             all_calls = pd.DataFrame()
             all_puts = pd.DataFrame()
             
-            # Fetch option chains for each expiration
-            for exp_date in expirations[:5]:  # Limit to 5 expirations to avoid rate limits
-                time.sleep(0.5)  # Add small delay between requests
-                opt_chain = stock.option_chain(exp_date)
-                
-                # Add expiration date column
-                calls = opt_chain.calls.copy()
-                calls['expirationDate'] = exp_date
-                
-                puts = opt_chain.puts.copy()
-                puts['expirationDate'] = exp_date
-                
-                # Append to main DataFrames
-                all_calls = pd.concat([all_calls, calls])
-                all_puts = pd.concat([all_puts, puts])
+            # Get option chains
+            for exp_date in process_expirations:
+                try:
+                    # Add delay between expiration requests
+                    if exp_date != process_expirations[0]:
+                        time.sleep(0.5)
+                    
+                    # Get option chain for this expiration
+                    print(f"Fetching options for {ticker} expiring {exp_date}")
+                    opt_chain = stock.option_chain(exp_date)
+                    
+                    if not hasattr(opt_chain, 'calls') or not hasattr(opt_chain, 'puts'):
+                        print(f"Invalid option chain data for {exp_date}")
+                        continue
+                    
+                    # Add expiration date column
+                    calls = opt_chain.calls.copy()
+                    calls['expirationDate'] = exp_date
+                    
+                    puts = opt_chain.puts.copy()
+                    puts['expirationDate'] = exp_date
+                    
+                    # Append to main DataFrames
+                    all_calls = pd.concat([all_calls, calls])
+                    all_puts = pd.concat([all_puts, puts])
+                    
+                except Exception as e:
+                    print(f"Error processing {exp_date} options: {str(e)}")
+                    continue
             
-            # Reset indices
-            all_calls.reset_index(drop=True, inplace=True)
-            all_puts.reset_index(drop=True, inplace=True)
-            
-            if all_calls.empty and all_puts.empty:
-                print(f"No option data found for {ticker}, attempt {tries+1}/{max_tries}")
-                tries += 1
-                continue
+            # If we have data, return it
+            if not all_calls.empty and not all_puts.empty:
+                # Reset indices for clean DataFrames
+                all_calls.reset_index(drop=True, inplace=True)
+                all_puts.reset_index(drop=True, inplace=True)
                 
-            return all_calls, all_puts
-        
-        except Exception as e:
-            print(f"Error fetching option chain for {ticker} (attempt {tries+1}/{max_tries}): {e}")
+                print(f"Successfully fetched option chain data for {ticker}")
+                return all_calls, all_puts
+            
+            # If we reach here with no data, try again
+            print(f"No valid option data found for {ticker}")
             tries += 1
-            time.sleep(2)
+            
+        except Exception as e:
+            print(f"Error fetching option chain for {ticker} (attempt {tries+1}): {str(e)}")
+            tries += 1
     
-    # If we get here, all attempts failed - return dummy data for demo purposes
-    return get_dummy_options(ticker)
-
-def get_dummy_options(ticker):
-    """Generate dummy option chain data for demonstration purposes"""
-    stock_price = {'AAPL': 180.0, 'MSFT': 350.0, 'GOOGL': 140.0, 'AMZN': 130.0, 'META': 300.0}.get(ticker.upper(), 100.0)
-    today = datetime.now()
-    
-    # Generate some future expiration dates
-    expirations = [(today + timedelta(days=30)).strftime('%Y-%m-%d'),
-                   (today + timedelta(days=60)).strftime('%Y-%m-%d'),
-                   (today + timedelta(days=90)).strftime('%Y-%m-%d')]
-    
-    # Create strikes around current price
-    strikes = [round(stock_price * (1 + i * 0.05), 1) for i in range(-10, 11)]
-    
-    # Create dummy calls
-    calls_data = []
-    for exp in expirations:
-        for strike in strikes:
-            itm = strike < stock_price
-            call_price = max(0.1, stock_price - strike + 5) if itm else max(0.01, (stock_price * 0.1) * np.exp(-0.25 * ((strike - stock_price) / stock_price)**2))
-            calls_data.append({
-                'strike': strike,
-                'lastPrice': round(call_price, 2),
-                'bid': round(call_price * 0.95, 2),
-                'ask': round(call_price * 1.05, 2),
-                'volume': int(np.random.uniform(10, 1000)),
-                'openInterest': int(np.random.uniform(100, 5000)),
-                'impliedVolatility': round(np.random.uniform(0.2, 0.6), 4),
-                'expirationDate': exp
-            })
-    
-    # Create dummy puts
-    puts_data = []
-    for exp in expirations:
-        for strike in strikes:
-            itm = strike > stock_price
-            put_price = max(0.1, strike - stock_price + 5) if itm else max(0.01, (stock_price * 0.1) * np.exp(-0.25 * ((strike - stock_price) / stock_price)**2))
-            puts_data.append({
-                'strike': strike,
-                'lastPrice': round(put_price, 2),
-                'bid': round(put_price * 0.95, 2),
-                'ask': round(put_price * 1.05, 2),
-                'volume': int(np.random.uniform(10, 1000)),
-                'openInterest': int(np.random.uniform(100, 5000)),
-                'impliedVolatility': round(np.random.uniform(0.2, 0.6), 4),
-                'expirationDate': exp
-            })
-    
-    return pd.DataFrame(calls_data), pd.DataFrame(puts_data)
+    # If all attempts fail, return empty DataFrames
+    print(f"Failed to fetch option chain for {ticker}")
+    return pd.DataFrame(), pd.DataFrame()
 
 def calculate_implied_volatility(ticker, period='1y'):
     """
@@ -243,7 +227,7 @@ def calculate_implied_volatility(ticker, period='1y'):
     ticker : str
         Stock ticker symbol
     period : str
-        Time period to fetch data for
+        Time period to calculate for
         
     Returns:
     --------
@@ -251,26 +235,26 @@ def calculate_implied_volatility(ticker, period='1y'):
         Annualized volatility
     """
     try:
-        # Fetch data
+        # Get stock data
         data = get_stock_data(ticker, period=period)
         
-        if data.empty or len(data) < 2:
-            # Return reasonable default if data fetch fails
-            return 0.3  # 30% volatility as default
+        if data.empty or len(data) < 5:
+            print(f"Insufficient data for volatility calculation for {ticker}")
+            return 0.3  # Default volatility
         
         # Calculate log returns
         log_returns = np.log(data['Close'] / data['Close'].shift(1)).dropna()
         
         # Calculate annualized volatility
         daily_volatility = log_returns.std()
-        annualized_volatility = daily_volatility * np.sqrt(252)  # Assuming 252 trading days in a year
+        annualized_volatility = daily_volatility * np.sqrt(252)
         
+        print(f"Calculated volatility for {ticker}: {annualized_volatility:.4f}")
         return annualized_volatility
     
     except Exception as e:
-        print(f"Error calculating volatility for {ticker}: {e}")
-        # Return reasonable default
-        return 0.3  # 30% volatility as default
+        print(f"Error calculating volatility for {ticker}: {str(e)}")
+        return 0.3  # Default volatility
 
 def get_risk_free_rate():
     """
@@ -281,25 +265,42 @@ def get_risk_free_rate():
     float
         Current risk-free rate (annualized)
     """
-    try:
-        # Fetch 10-year Treasury yield as proxy for risk-free rate
-        time.sleep(0.5)  # Add delay
-        treasury = yf.Ticker("^TNX")  # 10-year Treasury yield
-        data = treasury.history(period="1d", headers=HEADERS)
-        
-        if data.empty:
-            # Default to a reasonable value if fetching fails
-            return 0.04  # 4%
-        
-        # Convert from percentage to decimal
-        risk_free_rate = data['Close'].iloc[-1] / 100
-        
-        return risk_free_rate
+    global session
     
-    except Exception as e:
-        print(f"Error fetching risk-free rate: {e}")
-        # Return a default value
-        return 0.04  # 4%
+    tries = 0
+    max_tries = 3
+    
+    while tries < max_tries:
+        try:
+            # Fresh session for Treasury data
+            if tries > 0:
+                time.sleep(tries * 0.5)
+                session = create_session()
+                
+            print("Fetching current risk-free rate...")
+            
+            # Fetch 10-year Treasury yield
+            treasury = yf.Ticker("^TNX", session=session)
+            data = treasury.history(period="2d")
+            
+            if data.empty:
+                print("Empty treasury data returned")
+                tries += 1
+                continue
+            
+            # Convert from percentage to decimal
+            risk_free_rate = data['Close'].iloc[-1] / 100
+            
+            print(f"Current risk-free rate: {risk_free_rate:.4f}")
+            return risk_free_rate
+            
+        except Exception as e:
+            print(f"Error fetching risk-free rate (attempt {tries+1}): {str(e)}")
+            tries += 1
+    
+    # Default value if all attempts fail
+    print("Using default risk-free rate")
+    return 0.0429  # ~4.29% (current 10Y Treasury yield)
 
 def get_market_data(start_date=None, end_date=None):
     """
@@ -317,48 +318,10 @@ def get_market_data(start_date=None, end_date=None):
     pandas.DataFrame
         DataFrame containing market data
     """
-    tries = 0
-    max_tries = 3
+    global session
+    fresh_session = create_session()
     
-    while tries < max_tries:
-        try:
-            # Default to 1 year of data if no dates specified
-            if not end_date:
-                end_date = datetime.now()
-            else:
-                end_date = pd.to_datetime(end_date)
-                
-            if not start_date:
-                start_date = end_date - timedelta(days=365)
-            else:
-                start_date = pd.to_datetime(start_date)
-            
-            # Add delay to avoid rate limiting
-            time.sleep(random.uniform(0.5, 1.0))
-            
-            # Fetch S&P 500 data
-            market = yf.download('^GSPC', start=start_date, end=end_date, headers=HEADERS, progress=False)
-            
-            if market.empty:
-                print(f"Empty market data returned, attempt {tries+1}/{max_tries}")
-                tries += 1
-                continue
-                
-            # Calculate returns
-            market['Daily_Return'] = market['Close'].pct_change()
-            
-            return market
-        
-        except Exception as e:
-            print(f"Error fetching market data (attempt {tries+1}/{max_tries}): {e}")
-            tries += 1
-            time.sleep(2)
-    
-    # If all attempts fail, return dummy market data
-    return get_dummy_market_data(start_date, end_date)
-
-def get_dummy_market_data(start_date=None, end_date=None):
-    """Generate dummy market data for demonstration purposes"""
+    # Set date range
     if not end_date:
         end_date = datetime.now()
     else:
@@ -369,28 +332,41 @@ def get_dummy_market_data(start_date=None, end_date=None):
     else:
         start_date = pd.to_datetime(start_date)
     
-    # Generate date range
-    date_range = pd.date_range(start=start_date, end=end_date, freq='B')  # Business days
+    tries = 0
+    max_tries = 3
     
-    # Generate S&P 500 prices
-    base_price = 4500  # Approximate S&P 500 price
-    np.random.seed(42)  # For reproducibility
+    while tries < max_tries:
+        try:
+            if tries > 0:
+                time.sleep(tries * 0.5)
+                fresh_session = create_session()
+            
+            print(f"Fetching S&P 500 data from {start_date.date()} to {end_date.date()}")
+            
+            # Fetch S&P 500 data with session
+            market = yf.download(
+                "^GSPC",
+                start=start_date,
+                end=end_date,
+                session=fresh_session,
+                progress=False
+            )
+            
+            if market.empty:
+                print("Empty market data returned")
+                tries += 1
+                continue
+            
+            # Calculate returns
+            print(f"Successfully fetched market data with {len(market)} rows")
+            market['Daily_Return'] = market['Close'].pct_change()
+            
+            return market
+            
+        except Exception as e:
+            print(f"Error fetching market data (attempt {tries+1}): {str(e)}")
+            tries += 1
     
-    prices = [base_price]
-    for i in range(1, len(date_range)):
-        daily_return = np.random.normal(0.0002, 0.01)  # Small positive bias with volatility
-        prices.append(prices[-1] * (1 + daily_return))
-    
-    # Create DataFrame
-    market = pd.DataFrame({
-        'Open': prices,
-        'High': [p * (1 + np.random.uniform(0, 0.01)) for p in prices],
-        'Low': [p * (1 - np.random.uniform(0, 0.01)) for p in prices],
-        'Close': prices,
-        'Volume': [int(np.random.uniform(1e9, 5e9)) for _ in prices]
-    }, index=date_range)
-    
-    # Calculate returns
-    market['Daily_Return'] = market['Close'].pct_change()
-    
-    return market
+    # Return empty DataFrame if all attempts fail
+    print("Failed to fetch market data")
+    return pd.DataFrame()
