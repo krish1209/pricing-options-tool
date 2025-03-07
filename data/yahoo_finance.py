@@ -547,6 +547,199 @@ def get_risk_free_rate():
     print("Using default risk-free rate")
     return 0.0429  # ~4.29% (current 10Y Treasury yield)
 
+def calculate_implied_volatility(ticker, period='1y'):
+    """
+    Calculate historical volatility from stock data with improved reliability
+    
+    Parameters:
+    -----------
+    ticker : str
+        Stock ticker symbol
+    period : str
+        Time period to calculate for
+        
+    Returns:
+    --------
+    float
+        Annualized volatility
+    """
+    try:
+        # Get stock data with improved fetching
+        data = get_stock_data(ticker, period=period)
+        
+        if data.empty or len(data) < 5:
+            print(f"Insufficient data for volatility calculation for {ticker}")
+            return 0.3  # Default volatility
+        
+        # Calculate log returns
+        log_returns = np.log(data['Close'] / data['Close'].shift(1)).dropna()
+        
+        # Calculate annualized volatility
+        daily_volatility = log_returns.std()
+        annualized_volatility = daily_volatility * np.sqrt(252)
+        
+        print(f"Calculated volatility for {ticker}: {annualized_volatility:.4f}")
+        return annualized_volatility
+    
+    except Exception as e:
+        print(f"Error calculating volatility for {ticker}: {str(e)}")
+        return 0.3  # Default volatility
+
+def get_market_data(start_date=None, end_date=None):
+    """
+    Get market data (S&P 500) for beta calculation with improved reliability
+    
+    Parameters:
+    -----------
+    start_date : str, optional
+        Start date in format 'YYYY-MM-DD'
+    end_date : str, optional
+        End date in format 'YYYY-MM-DD'
+        
+    Returns:
+    --------
+    pandas.DataFrame
+        DataFrame containing market data
+    """
+    global session
+    refresh_session_if_needed()
+    fresh_session = create_session()
+    
+    # Set date range
+    if not end_date:
+        end_date = datetime.now()
+    else:
+        end_date = pd.to_datetime(end_date)
+        
+    if not start_date:
+        start_date = end_date - timedelta(days=365)
+    else:
+        start_date = pd.to_datetime(start_date)
+    
+    tries = 0
+    max_tries = 4  # Increased retries
+    
+    # Method 1: Try yfinance download
+    while tries < max_tries:
+        try:
+            if tries > 0:
+                delay = tries * 1.0 + random.uniform(0.5, 1.0)
+                time.sleep(delay)
+                fresh_session = create_session()
+            
+            print(f"Method 1: Fetching S&P 500 data from {start_date.date()} to {end_date.date()}")
+            
+            # Fetch S&P 500 data with session
+            market = yf.download(
+                "^GSPC",
+                start=start_date,
+                end=end_date + timedelta(days=1),  # Add a day to include end date
+                session=fresh_session,
+                progress=False
+            )
+            
+            if market.empty:
+                print("Empty market data returned")
+                tries += 1
+                continue
+            
+            # Calculate returns
+            print(f"Successfully fetched market data with {len(market)} rows")
+            market['Daily_Return'] = market['Close'].pct_change()
+            
+            return market
+            
+        except Exception as e:
+            print(f"Method 1 Error fetching market data (attempt {tries+1}): {str(e)}")
+            tries += 1
+    
+    # Method 2: Try direct API approach
+    tries = 0
+    while tries < max_tries:
+        try:
+            if tries > 0:
+                delay = tries * 1.5 + random.uniform(0.5, 1.5)
+                time.sleep(delay)
+                fresh_session = create_session()
+            
+            print(f"Method 2: Direct API fetch for S&P 500 data")
+            
+            # Calculate Unix timestamps for API
+            end_unix = int(end_date.timestamp())
+            start_unix = int(start_date.timestamp())
+            
+            # Build Yahoo Finance API URL
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/^GSPC"
+            params = {
+                'period1': start_unix,
+                'period2': end_unix,
+                'interval': '1d',
+                'includePrePost': 'false',
+                'events': 'div,split',
+                'corsDomain': 'finance.yahoo.com',
+            }
+            
+            # Make request with randomized delay
+            time.sleep(random.uniform(0.1, 0.3))
+            response = fresh_session.get(url, params=params)
+            
+            if response.status_code != 200:
+                print(f"API request failed with status code {response.status_code}")
+                tries += 1
+                continue
+            
+            # Parse JSON response
+            data_json = response.json()
+            
+            # Check if we have valid data
+            if 'chart' not in data_json or 'result' not in data_json['chart'] or not data_json['chart']['result']:
+                print(f"Invalid API response format for S&P 500")
+                tries += 1
+                continue
+            
+            # Extract price data
+            chart_data = data_json['chart']['result'][0]
+            timestamps = chart_data['timestamp']
+            quote = chart_data['indicators']['quote'][0]
+            
+            # Check for missing fields
+            required_fields = ['open', 'high', 'low', 'close', 'volume']
+            if not all(field in quote for field in required_fields):
+                print(f"Missing required fields in API response for S&P 500")
+                tries += 1
+                continue
+            
+            # Convert to DataFrame
+            market = pd.DataFrame({
+                'Open': quote['open'],
+                'High': quote['high'],
+                'Low': quote['low'],
+                'Close': quote['close'],
+                'Volume': quote['volume']
+            }, index=pd.to_datetime([datetime.fromtimestamp(x) for x in timestamps]))
+            
+            # Handle missing data
+            market = market.dropna(subset=['Close'])
+            
+            if market.empty:
+                print(f"Empty data after processing for S&P 500")
+                tries += 1
+                continue
+            
+            # Calculate returns
+            market['Daily_Return'] = market['Close'].pct_change()
+            
+            print(f"Successfully fetched market data with {len(market)} rows")
+            return market
+            
+        except Exception as e:
+            print(f"Method 2 Error fetching market data (attempt {tries+1}): {str(e)}")
+            tries += 1
+    
+    # Return empty DataFrame if all attempts fail
+    print("All methods failed to fetch market data")
+    return pd.DataFrame()
+
 # Example usage
 if __name__ == "__main__":
     # Test the improved code
@@ -562,6 +755,15 @@ if __name__ == "__main__":
     else:
         print(f"Failed to fetch stock data for {ticker}")
     
+    # Calculate implied volatility
+    vol = calculate_implied_volatility(ticker)
+    print(f"Historical volatility: {vol:.4f}")
+    
     # Get current risk-free rate
     rf_rate = get_risk_free_rate()
     print(f"Current risk-free rate: {rf_rate:.4f}")
+    
+    # Test market data fetch
+    market_data = get_market_data()
+    if not market_data.empty:
+        print(f"Successfully fetched S&P 500 data with {len(market_data)} rows")
