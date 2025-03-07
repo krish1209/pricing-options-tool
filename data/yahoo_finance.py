@@ -212,14 +212,12 @@ class FinanceData:
 
     def _try_alternative_source(self, ticker, period, interval):
         """
-        Try using an alternative data source like Alpha Vantage
-        or a free alternative API - in this case, simulate with sample data
+        Try using an alternative data source - in this case, simulate with sample data
         """
         try:
             logger.info(f"Using alternative data source for {ticker}")
             
             # For demonstration, generate synthetic data based on ticker
-            # In a real implementation, you would call Alpha Vantage API or another alternative
             
             end_date = datetime.now()
             
@@ -478,17 +476,54 @@ class FinanceData:
         return df
 
 
+# Create a singleton instance
+_finance_data = FinanceData(use_cache=True, cache_expiry_hours=24)
+
+# Export compatibility functions with the same names as in the original yahoo_finance.py
+
+def get_stock_data(ticker, period='1y', interval='1d'):
+    """
+    Compatibility function that matches the original yahoo_finance.py signature
+    """
+    logger.info(f"Called get_stock_data({ticker}, {period}, {interval})")
+    return _finance_data.get_stock_data(ticker, period, interval)
+
+def get_option_chain(ticker):
+    """
+    Compatibility function that matches the original yahoo_finance.py signature
+    """
+    logger.info(f"Called get_option_chain({ticker})")
+    return _finance_data.get_option_chain(ticker)
+
+def calculate_implied_volatility(ticker, period='1y'):
+    """
+    Compatibility function that matches the original yahoo_finance.py signature
+    """
+    logger.info(f"Called calculate_implied_volatility({ticker}, {period})")
+    return _finance_data.calculate_implied_volatility(ticker, period)
+
+def get_risk_free_rate():
+    """
+    Compatibility function that matches the original yahoo_finance.py signature
+    """
+    logger.info("Called get_risk_free_rate()")
+    return _finance_data.get_risk_free_rate()
+
+def get_market_data(start_date=None, end_date=None):
+    """
+    Compatibility function that matches the original yahoo_finance.py signature
+    """
+    logger.info(f"Called get_market_data({start_date}, {end_date})")
+    return _finance_data.get_market_data(start_date, end_date)
+
 # Example usage
 if __name__ == "__main__":
-    # Initialize the finance data handler
-    finance = FinanceData(use_cache=True, cache_expiry_hours=24)
-    
-    # Test the data fetching
+    # Test the compatibility functions
     ticker = "AAPL"
     print(f"Testing data fetching for {ticker}")
     
-    # Get stock data
-    stock_data = finance.get_stock_data(ticker, period='1d')
+    # Test all the functions
+    stock_data = get_stock_data(ticker, period='1d')
     
     if not stock_data.empty:
         print("Successfully fetched stock data!")
@@ -497,56 +532,9 @@ if __name__ == "__main__":
         print(f"Failed to fetch stock data for {ticker}")
     
     # Calculate volatility
-    vol = finance.calculate_implied_volatility(ticker)
+    vol = calculate_implied_volatility(ticker)
     print(f"Historical volatility: {vol:.4f}")
     
     # Get risk-free rate
-    rf_rate = finance.get_risk_free_rate()
+    rf_rate = get_risk_free_rate()
     print(f"Current risk-free rate: {rf_rate:.4f}")
-
-
-# Function to implement in your web app
-def get_finance_data_for_app(ticker):
-    """
-    Function to get all necessary finance data for the web app,
-    with caching and fallbacks.
-    
-    Returns a dictionary with all the data.
-    """
-    finance = FinanceData(use_cache=True, cache_expiry_hours=24)
-    
-    # Initialize result dictionary
-    result = {
-        'ticker': ticker,
-        'success': False,
-        'price_data': None,
-        'risk_free_rate': 0.0429,  # Default
-        'volatility': 0.3,  # Default
-    }
-    
-    try:
-        # Try to get stock data
-        stock_data = finance.get_stock_data(ticker, period='1d')
-        
-        if not stock_data.empty:
-            result['success'] = True
-            result['price_data'] = {
-                'last_price': stock_data['Close'].iloc[-1],
-                'change': stock_data['Close'].iloc[-1] - stock_data['Open'].iloc[-1] 
-                          if len(stock_data) > 0 else 0,
-                'change_percent': (stock_data['Close'].iloc[-1] / stock_data['Open'].iloc[-1] - 1) * 100
-                                  if len(stock_data) > 0 else 0,
-            }
-        
-        # Get volatility
-        vol = finance.calculate_implied_volatility(ticker)
-        result['volatility'] = vol
-        
-        # Get risk-free rate
-        rf_rate = finance.get_risk_free_rate()
-        result['risk_free_rate'] = rf_rate
-        
-    except Exception as e:
-        logger.error(f"Error getting finance data for {ticker}: {str(e)}")
-    
-    return result
