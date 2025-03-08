@@ -15,6 +15,22 @@ from models.binomial import binomial_tree_european, binomial_tree_american, get_
 from models.risk_metrics import calculate_var, calculate_cvar, calculate_sharpe_ratio, calculate_beta, monte_carlo_var
 from data.yahoo_finance import get_stock_data, get_option_chain, calculate_implied_volatility, get_risk_free_rate, get_market_data
 
+# Initialize session state variables for visualizations
+if 'has_calculated' not in st.session_state:
+    st.session_state.has_calculated = False
+if 'mc_paths' not in st.session_state:
+    st.session_state.mc_paths = None
+if 'binomial_data' not in st.session_state:
+    st.session_state.binomial_data = None
+if 'option_params' not in st.session_state:
+    st.session_state.option_params = {}
+
+# Reset visualization state when parameters change
+def reset_visualization_state():
+    st.session_state.has_calculated = False
+    st.session_state.mc_paths = None
+    st.session_state.binomial_data = None
+
 st.set_page_config(
     page_title="Options Pricing & Risk Analysis",
     page_icon="📈",
@@ -25,6 +41,152 @@ st.set_page_config(
 # Custom CSS for styling
 st.markdown("""
 <style>
+    /* Color Palette */
+    :root {
+        --off-white: #F7F7F7;
+        --amber: #FFA726;
+        --brown: #704214;
+        --black: #000000;
+        --dark-gray: #121212;
+        --medium-gray: #272727;
+        --text-color: var(--off-white);
+        --accent-color: var(--amber);
+    }
+    
+    /* Global styles */
+    .stApp {
+        background-color: var(--black);
+        color: var(--text-color) !important;
+    }
+    
+    /* Force all text to be light by default */
+    .stMarkdown, .stText, p, div, span, label {
+        color: var(--text-color) !important;
+    }
+    
+    /* Header styling */
+    h1, h2, h3 {
+        color: var(--accent-color) !important;
+        font-weight: 600 !important;
+    }
+    
+    h4, h5, h6 {
+        color: var(--text-color) !important;
+        font-weight: 500 !important;
+    }
+    
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] {
+        background-color: var(--dark-gray);
+        border-right: 1px solid var(--medium-gray);
+    }
+    
+    section[data-testid="stSidebar"] .stMarkdown h1,
+    section[data-testid="stSidebar"] .stMarkdown h2,
+    section[data-testid="stSidebar"] .stMarkdown h3 {
+        color: var(--accent-color) !important;
+    }
+    
+    section[data-testid="stSidebar"] button {
+        background-color: var(--accent-color) !important;
+        color: var(--black) !important;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background-color: var(--accent-color) !important;
+        color: var(--black) !important;
+        border: none !important;
+        border-radius: 4px !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1rem !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stButton > button:hover {
+        background-color: var(--brown) !important;
+        color: var(--off-white) !important;
+        box-shadow: 0 0 10px rgba(255, 167, 38, 0.5) !important;
+    }
+    
+    /* Input text */
+    .stTextInput > div > div > input {
+        color: var(--off-white) !important;
+        background-color: var(--medium-gray) !important;
+        border: 1px solid var(--dark-gray) !important;
+    }
+    
+    /* Fix number inputs */
+    input[type="number"] {
+        color: var(--off-white) !important;
+        background-color: var(--medium-gray) !important;
+        border: 1px solid var(--dark-gray) !important;
+    }
+    
+    /* Radio buttons and checkboxes */
+    .stRadio label, .stCheckbox label {
+        color: var(--text-color) !important;
+    }
+    
+    /* Radio buttons color */
+    .stRadio [data-baseweb="radio"] div[role="radiogroup"] div[role="radio"] div {
+        border-color: var(--accent-color) !important;
+    }
+    
+    .stRadio [data-baseweb="radio"] div[role="radiogroup"] div[role="radio"][aria-checked="true"] div::after {
+        background-color: var(--accent-color) !important;
+    }
+    
+    /* Select boxes */
+    .stSelectbox > div > div > div {
+        color: var(--text-color) !important;
+        background-color: var(--medium-gray) !important;
+        border: 1px solid var(--dark-gray) !important;
+    }
+    
+    /* Card-like elements */
+    div.stDataFrame, div[data-testid="stTable"] {
+        background-color: var(--dark-gray);
+        border: 1px solid var(--medium-gray);
+        border-radius: 6px;
+        overflow: hidden;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Tabs styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 1px;
+        background-color: var(--dark-gray);
+        border-radius: 4px 4px 0 0;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background-color: var(--medium-gray);
+        border-radius: 4px 4px 0 0;
+        color: var(--off-white) !important;
+        padding: 0.5rem 1rem;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background-color: var(--accent-color) !important;
+        color: var(--black) !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Tab content background */
+    .stTabs [data-baseweb="tab-panel"] {
+        background-color: var(--dark-gray);
+        border-radius: 0 0 4px 4px;
+        padding: 1rem;
+        border: 1px solid var(--medium-gray);
+        border-top: none;
+    }
+    
+    /* Override the tab content color */
+    .stTabs [data-baseweb="tab-panel"] > div {
+        color: var(--text-color) !important;
+    }
+    
     /* Improved slider spacing */
     .stSlider {
         padding-top: 20px;
@@ -37,19 +199,29 @@ st.markdown("""
         margin-bottom: 8px !important;
         font-weight: 500 !important;
         font-size: 16px !important;
-        color: white !important;
+        color: var(--text-color) !important;
     }
     
     /* Better spacing for min/max values */
     .stSlider [data-baseweb] div[data-testid] {
         margin-top: 8px;
+        color: var(--text-color) !important;
+    }
+    
+    /* Fix slider track */
+    .stSlider > div > div > div {
+        background-color: var(--medium-gray) !important;
+    }
+    
+    .stSlider > div > div > div > div {
+        background-color: var(--accent-color) !important;
     }
     
     /* Fix slider thumb value positioning */
     .stSlider [data-testid="stThumbValue"] {
         position: absolute;
-        background-color: #4162FF !important;
-        color: white !important;
+        background-color: var(--accent-color) !important;
+        color: var(--black) !important;
         font-weight: 600 !important;
         padding: 3px 8px !important;
         border-radius: 4px !important;
@@ -59,12 +231,55 @@ st.markdown("""
         z-index: 100;
     }
     
+    /* Metrics styling */
+    [data-testid="stMetricValue"] {
+        color: var(--accent-color) !important;
+        font-weight: bold !important;
+    }
+    
+    [data-testid="stMetricDelta"] {
+        background-color: var(--brown);
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: var(--off-white) !important;
+    }
+    
+    /* Metric label color fix */
+    [data-testid="stMetricLabel"] {
+        color: var(--text-color) !important;
+    }
+    
+    /* SelectBox styling */
+    div[data-baseweb="select"] span {
+        color: var(--text-color) !important;
+    }
+    
+    /* MultiSelect options */
+    div[role="listbox"] div {
+        color: var(--text-color) !important;
+        background-color: var(--medium-gray);
+    }
+    
+    div[role="listbox"] div:hover {
+        background-color: var(--dark-gray) !important;
+    }
+    
+    /* Selected items in multiselect */
+    div[data-baseweb="tag"] {
+        background-color: var(--accent-color) !important;
+    }
+    
+    div[data-baseweb="tag"] span {
+        color: var(--black) !important;
+    }
+    
     /* Table layout improvements for better visibility */
     .dataframe {
         font-size: 13px !important;
         border-collapse: separate !important;
         border-spacing: 0 !important;
         width: 100% !important;
+        border: none !important;
     }
     
     /* Ensure scrolling works properly */
@@ -73,46 +288,72 @@ st.markdown("""
         overflow: auto !important;
     }
     
+    /* Ensure table cell text is light */
+    .dataframe td {
+        color: var(--text-color) !important;
+        background-color: var(--dark-gray) !important;
+    }
+    
     /* Sticky header for tables */
     .dataframe thead th {
         position: sticky !important;
         top: 0 !important;
         z-index: 1 !important;
-        background-color: #1E1E1E !important;
+        background-color: var(--brown) !important;
+        color: var(--off-white) !important;
+        padding: 8px 4px !important;
+        font-weight: 600 !important;
+    }
+    
+    .dataframe td {
+        background-color: var(--dark-gray);
+        padding: 6px 4px !important;
+        border-bottom: 1px solid var(--medium-gray) !important;
     }
     
     /* Better styling for call options */
     .call-options-table th {
-        background-color: rgba(0, 100, 0, 0.4) !important;
-        color: white !important;
+        background-color: var(--brown) !important;
+        color: var(--off-white) !important;
         padding: 8px 4px !important;
         text-align: center !important;
         font-weight: 600 !important;
-        border-bottom: 1px solid #444 !important;
+        border-bottom: 1px solid var(--medium-gray) !important;
     }
     
     .call-options-table td {
-        color: white !important;
+        background-color: var(--dark-gray) !important;
+        color: var(--text-color) !important;
         padding: 6px 4px !important;
         text-align: right !important;
-        border-bottom: 1px solid #333 !important;
+        border-bottom: 1px solid var(--medium-gray) !important;
     }
     
     /* Better styling for put options */
     .put-options-table th {
-        background-color: rgba(128, 0, 0, 0.4) !important;
-        color: white !important;
+        background-color: var(--brown) !important;
+        color: var(--off-white) !important;
         padding: 8px 4px !important;
         text-align: center !important;
         font-weight: 600 !important;
-        border-bottom: 1px solid #444 !important;
+        border-bottom: 1px solid var(--medium-gray) !important;
     }
     
     .put-options-table td {
-        color: white !important;
+        background-color: var(--dark-gray) !important;
+        color: var(--text-color) !important;
         padding: 6px 4px !important;
         text-align: right !important;
-        border-bottom: 1px solid #333 !important;
+        border-bottom: 1px solid var(--medium-gray) !important;
+    }
+    
+    /* Special highlights for in-the-money options */
+    .call-options-table .itm {
+        background-color: rgba(255, 167, 38, 0.2) !important;
+    }
+    
+    .put-options-table .itm {
+        background-color: rgba(255, 167, 38, 0.2) !important;
     }
     
     /* Ensure option chain columns are spaced better */
@@ -124,13 +365,181 @@ st.markdown("""
     .option-column {
         flex: 1;
     }
+    
+    /* Custom header bar */
+    .header-container {
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        padding: 1rem 0;
+        border-bottom: 2px solid var(--accent-color);
+        margin-bottom: 2rem;
+    }
+    
+    .header-title {
+        color: var(--accent-color);
+        margin: 0;
+        font-weight: 700;
+    }
+    
+    .header-links {
+        display: flex; 
+        gap: 15px; 
+        align-items: center;
+    }
+    
+    .header-links img {
+        transition: transform 0.2s ease;
+        filter: invert(1);
+    }
+    
+    .header-links img:hover {
+        transform: scale(1.1);
+    }
+    
+    /* Footer styling */
+    .footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--dark-gray);
+        color: var(--text-color);
+        font-size: 0.9rem;
+        text-align: center;
+    }
+    
+    /* Interpretation text styling */
+    .interpretation-text {
+        background-color: var(--dark-gray);
+        border-left: 3px solid var(--accent-color);
+        padding: 0.8rem;
+        border-radius: 0 4px 4px 0;
+        margin: 1rem 0;
+    }
+    
+    /* Result box styling */
+    .result-box {
+        background-color: var(--dark-gray);
+        border: 1px solid var(--medium-gray);
+        border-radius: 6px;
+        padding: 1rem;
+        margin: 1rem 0;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Plots and charts styling */
+    [data-testid="stDecoration"] {
+        background-color: var(--dark-gray) !important;
+        border: 1px solid var(--medium-gray) !important;
+        border-radius: 6px !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    /* Caption and legend text fixes */
+    .js-plotly-plot .plotly .legend text, 
+    .js-plotly-plot .plotly .xtick text, 
+    .js-plotly-plot .plotly .ytick text {
+        fill: var(--text-color) !important;
+    }
+    
+    /* Fix code blocks */
+    .stCodeBlock, code {
+        background-color: var(--medium-gray) !important;
+        color: var(--off-white) !important;
+    }
+    
+    /* Misc elements fixes */
+    .stProgress > div > div > div {
+        background-color: var(--accent-color) !important;
+    }
+    
+    /* Make sure all progress bars have proper contrast */
+    .stProgress {
+        color: var(--off-white) !important;
+    }
+    
+    /* Fix expanders */
+    .stExpander details {
+        background-color: var(--dark-gray) !important;
+        border: 1px solid var(--medium-gray) !important;
+    }
+    
+    .stExpander details summary {
+        color: var(--text-color) !important;
+    }
+    
+    /* Fix captions */
+    .stCaption {
+        color: var(--text-color) !important;
+        opacity: 0.8;
+    }
+    
+    /* Fix info boxes */
+    div[data-baseweb="notification"] {
+        background-color: var(--dark-gray) !important;
+        border-left-color: var(--accent-color) !important;
+    }
+    
+    div[data-baseweb="notification"] div {
+        color: var(--text-color) !important;
+    }
+    
+    /* Fix tooltip text */
+    div[data-baseweb="tooltip"] {
+        background-color: var(--brown) !important;
+        color: var(--off-white) !important;
+    }
+    
+    /* Make plotly background dark */
+    .js-plotly-plot .plotly {
+        background-color: var(--dark-gray) !important;
+    }
+    
+    .js-plotly-plot .plotly .main-svg {
+        background-color: var(--dark-gray) !important;
+    }
+    
+    /* Fix the main trace colors to be bright in dark mode */
+    .js-plotly-plot .plotly .scatter .lines {
+        stroke: var(--accent-color) !important;
+    }
+    
+    /* Fix line chart grid */
+    .js-plotly-plot .plotly .gridlayer path {
+        stroke: var(--medium-gray) !important;
+    }
+
+    /* Fix axis lines */
+    .js-plotly-plot .plotly .xaxis path.domain,
+    .js-plotly-plot .plotly .yaxis path.domain {
+        stroke: var(--text-color) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# App title and description
-st.title("Options Pricing & Risk Analysis Tool")
-st.markdown("This app provides tools for pricing options using different models and analyzing financial risks.")
-
+# st.markdown("This app provides tools for pricing options using different models and analyzing financial risks.")
+st.markdown(
+    """
+    <div style="padding: 1rem 0; border-bottom: 2px solid #FFA726; margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1 style="color: #FFA726; margin: 0; font-weight: 700;">Options Pricing & Risk Analysis Tool</h1>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <a href="github.com/krish1209/pricing-options-tool" target="_blank">
+                    <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="30" style="filter: invert(1);" />
+                </a>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="color: #F7F7F7;">Created by - Krish Bagga</span>
+                    <a href="https://www.linkedin.com/in/krishbagga/" target="_blank">
+                        <img src="https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Bug.svg.original.svg" width="20" style="filter: invert(1);" />
+                    </a>
+                </div>
+            </div>
+        </div>
+        <p style="color: #F7F7F7; margin-top: 0.5rem; margin-bottom: 0;">Analyze options using various pricing models and evaluate financial risk metrics.</p>
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
 # Sidebar for ticker selection and general parameters
 st.sidebar.header("Settings")
 
@@ -179,35 +588,49 @@ with tab1:
     
     with col1:
         st.subheader("Option Parameters")
-        option_type = st.radio("Option Type:", ["Call", "Put"])
-        strike_price = st.number_input("Strike Price ($):", min_value=0.1, value=round(current_price, 1), step=1.0)
-        maturity_days = st.number_input("Time to Maturity (days):", min_value=1, value=30)
+        option_type = st.radio("Option Type:", ["Call", "Put"], on_change=reset_visualization_state)
+        strike_price = st.number_input("Strike Price ($):", min_value=0.1, value=round(current_price, 1), step=1.0, on_change=reset_visualization_state)
+        maturity_days = st.number_input("Time to Maturity (days):", min_value=1, value=30, on_change=reset_visualization_state)
         maturity = maturity_days / 365.0  # Convert to years
-        volatility = st.slider("Volatility (%):", min_value=1.0, max_value=100.0, value=float(implied_vol*100), step=0.1) / 100
-        rf_rate = st.slider("Risk-Free Rate (%):", min_value=0.0, max_value=10.0, value=float(risk_free_rate*100), step=0.1) / 100
+        volatility = st.slider("Volatility (%):", min_value=1.0, max_value=100.0, value=float(implied_vol*100), step=0.1, on_change=reset_visualization_state) / 100
+        rf_rate = st.slider("Risk-Free Rate (%):", min_value=0.0, max_value=10.0, value=float(risk_free_rate*100), step=0.1, on_change=reset_visualization_state) / 100
     
     with col2:
         st.subheader("Model Settings")
         models_to_use = st.multiselect(
             "Select Models to Compare:",
             ["Black-Scholes", "Monte Carlo", "Binomial Tree"],
-            default=["Black-Scholes", "Monte Carlo", "Binomial Tree"]
+            default=["Black-Scholes", "Monte Carlo", "Binomial Tree"],
+            on_change=reset_visualization_state
         )
         
-        monte_carlo_sims = st.number_input("Monte Carlo Simulations:", min_value=1000, max_value=100000, value=10000, step=1000)
-        binomial_steps = st.number_input("Binomial Tree Steps:", min_value=10, max_value=1000, value=100, step=10)
+        monte_carlo_sims = st.number_input("Monte Carlo Simulations:", min_value=1000, max_value=100000, value=10000, step=1000, on_change=reset_visualization_state)
+        binomial_steps = st.number_input("Binomial Tree Steps:", min_value=10, max_value=1000, value=100, step=10, on_change=reset_visualization_state)
         
         st.markdown("---")
         st.markdown("### Stock Price")
         st.markdown(f"Current Price: **${current_price:.2f}**")
         
         # Option to manually override stock price
-        override_price = st.checkbox("Override Stock Price")
+        override_price = st.checkbox("Override Stock Price", on_change=reset_visualization_state)
         if override_price:
-            current_price = st.number_input("Stock Price ($):", min_value=0.1, value=current_price, step=1.0)
+            current_price = st.number_input("Stock Price ($):", min_value=0.1, value=current_price, step=1.0, on_change=reset_visualization_state)
     
     # Calculate option prices when button is clicked
     if st.button("Calculate Option Prices"):
+        st.session_state.has_calculated = True
+        st.session_state.option_params = {
+            'current_price': current_price,
+            'strike_price': strike_price,
+            'maturity': maturity,
+            'rf_rate': rf_rate,
+            'volatility': volatility,
+            'option_type': option_type.lower(),
+            'models': models_to_use,
+            'monte_carlo_sims': monte_carlo_sims,
+            'binomial_steps': binomial_steps
+        }
+        
         calc_options_status = st.empty()
         calc_options_status.info("Calculating...")
         
@@ -254,6 +677,15 @@ with tab1:
                     mc_result = monte_carlo_european(current_price, strike_price, maturity, rf_rate, volatility, option_type.lower(), monte_carlo_sims)
                     end_time = time.time()
                     
+                    # Generate Monte Carlo paths for visualization and store in session state
+                    time_points, paths = monte_carlo_path_generator(
+                        current_price, maturity, rf_rate, volatility, simulations=50, steps=100
+                    )
+                    st.session_state.mc_paths = {
+                        'time_points': time_points,
+                        'paths': paths
+                    }
+                    
                     # Display results
                     st.metric("Option Price", f"${mc_result['price']:.4f}")
                     st.markdown(f"Computation Time: {(end_time - start_time)*1000:.2f} ms")
@@ -267,32 +699,6 @@ with tab1:
                     
                     # Store result
                     price_results["Monte Carlo"] = mc_result['price']
-                    
-                    # Generate and plot price paths for visualization
-                    if st.checkbox("Show Monte Carlo Paths", key="show_mc_paths"):
-                        st.markdown("##### Price Path Simulation")
-                        
-                        time_points, paths = monte_carlo_path_generator(
-                            current_price, maturity, rf_rate, volatility, simulations=50, steps=100
-                        )
-                        
-                        # Create the plot
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        for i in range(min(20, paths.shape[0])):  # Plot up to 20 paths
-                            ax.plot(time_points, paths[i], linewidth=0.8, alpha=0.6)
-                        
-                        # Plot strike price line
-                        ax.axhline(y=strike_price, color='r', linestyle='--', linewidth=1)
-                        
-                        # Plot the mean path
-                        ax.plot(time_points, np.mean(paths, axis=0), color='black', linewidth=2)
-                        
-                        ax.set_xlabel('Time (years)')
-                        ax.set_ylabel('Stock Price ($)')
-                        ax.set_title('Monte Carlo Simulation Paths')
-                        ax.grid(True, alpha=0.3)
-                        
-                        st.pyplot(fig)
                 
                 elif model == "Binomial Tree":
                     # Calculate using Binomial Tree
@@ -308,6 +714,13 @@ with tab1:
                     bt_amer_price = binomial_tree_american(
                         current_price, strike_price, maturity, rf_rate, volatility, 
                         option_type.lower(), binomial_steps
+                    )
+                    
+                    # Generate tree data for visualization and store in session state
+                    vis_steps = min(10, binomial_steps)  # Limit for visualization
+                    st.session_state.binomial_data = get_binomial_tree_data(
+                        current_price, strike_price, maturity, rf_rate, volatility,
+                        option_type.lower(), vis_steps
                     )
                     
                     end_time = time.time()
@@ -328,78 +741,6 @@ with tab1:
                     
                     # Store result
                     price_results["Binomial Tree"] = bt_euro_price
-                    
-                    # Visualize the tree
-                    if st.checkbox("Show Binomial Tree", key="show_binomial"):
-                        st.markdown("##### Binomial Tree Visualization (Simplified)")
-                        
-                        # Get tree data with reduced steps for visualization
-                        vis_steps = min(10, binomial_steps)  # Limit for visualization
-                        tree_data = get_binomial_tree_data(
-                            current_price, strike_price, maturity, rf_rate, volatility,
-                            option_type.lower(), vis_steps
-                        )
-                        
-                        # Create visualization using Plotly
-                        fig = go.Figure()
-                        
-                        # Add nodes
-                        for i, t in enumerate(tree_data['time_points']):
-                            for j in range(i + 1):
-                                stock_price = tree_data['stock_prices'][j, i]
-                                option_price = tree_data['option_values'][j, i]
-                                
-                                # Node position
-                                x = t
-                                y = j - i/2  # Adjust y for balanced tree
-                                
-                                # Add node
-                                fig.add_trace(go.Scatter(
-                                    x=[x], y=[y],
-                                    mode='markers+text',
-                                    marker=dict(size=30, color='rgba(75, 120, 168, 0.8)'),
-                                    text=f"${stock_price:.1f}<br>${option_price:.2f}",
-                                    textposition="middle center",
-                                    textfont=dict(color='white', size=9),
-                                    showlegend=False,
-                                    hoverinfo='text',
-                                    hovertext=f"Time: {t:.3f}<br>Stock: ${stock_price:.2f}<br>Option: ${option_price:.2f}"
-                                ))
-                                
-                                # Connect with previous nodes
-                                if i > 0:
-                                    # Connect to upper node (up factor)
-                                    if j > 0:
-                                        fig.add_trace(go.Scatter(
-                                            x=[tree_data['time_points'][i-1], x],
-                                            y=[j-1-(i-1)/2, y],
-                                            mode='lines',
-                                            line=dict(width=1, color='rgba(75, 120, 168, 0.6)'),
-                                            showlegend=False
-                                        ))
-                                    
-                                    # Connect to lower node (down factor)
-                                    if j < i:
-                                        fig.add_trace(go.Scatter(
-                                            x=[tree_data['time_points'][i-1], x],
-                                            y=[j-(i-1)/2, y],
-                                            mode='lines',
-                                            line=dict(width=1, color='rgba(75, 120, 168, 0.6)'),
-                                            showlegend=False
-                                        ))
-                        
-                        # Update layout
-                        fig.update_layout(
-                            title="Binomial Tree (Simplified View)",
-                            xaxis_title="Time (years)",
-                            height=500,
-                            showlegend=False,
-                            hovermode='closest',
-                            xaxis=dict(showgrid=False),
-                            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)
-                        )
-                        
-                        st.plotly_chart(fig, use_container_width=True)
         
         # Clear calculating status
         calc_options_status.empty()
@@ -427,6 +768,116 @@ with tab1:
             )
             
             st.plotly_chart(fig, use_container_width=True)
+    
+    # VISUALIZATION SECTION - THIS IS COMPLETELY SEPARATE FROM THE CALCULATION
+    # Only show visualizations if calculation has been performed
+    if st.session_state.has_calculated:
+        st.markdown("---")
+        st.markdown("## Visualizations")
+        
+        # Create tabs for different visualizations
+        viz_tab1, viz_tab2 = st.tabs(["Monte Carlo Paths", "Binomial Tree"])
+        
+        # Tab 1: Monte Carlo Paths
+        with viz_tab1:
+            if "Monte Carlo" in st.session_state.option_params.get('models', []) and st.session_state.mc_paths is not None:
+                st.subheader("Monte Carlo Price Path Simulation")
+                
+                # Get parameters from session state
+                params = st.session_state.option_params
+                mc_data = st.session_state.mc_paths
+                
+                # Create the plot
+                fig, ax = plt.subplots(figsize=(10, 6))
+                for i in range(min(20, mc_data['paths'].shape[0])):  # Plot up to 20 paths
+                    ax.plot(mc_data['time_points'], mc_data['paths'][i], linewidth=0.8, alpha=0.6)
+                
+                # Plot strike price line
+                ax.axhline(y=params['strike_price'], color='r', linestyle='--', linewidth=1)
+                
+                # Plot the mean path
+                ax.plot(mc_data['time_points'], np.mean(mc_data['paths'], axis=0), color='black', linewidth=2)
+                
+                ax.set_xlabel('Time (years)')
+                ax.set_ylabel('Stock Price ($)')
+                ax.set_title(f'Monte Carlo Simulation Paths for {params["option_type"].capitalize()} Option')
+                ax.grid(True, alpha=0.3)
+                
+                st.pyplot(fig)
+            else:
+                st.info("Please select Monte Carlo model and calculate option prices to view paths.")
+        
+        # Tab 2: Binomial Tree
+        with viz_tab2:
+            if "Binomial Tree" in st.session_state.option_params.get('models', []) and st.session_state.binomial_data is not None:
+                st.subheader("Binomial Tree Visualization")
+                
+                # Get parameters from session state
+                params = st.session_state.option_params
+                tree_data = st.session_state.binomial_data
+                
+                # Create visualization using Plotly
+                fig = go.Figure()
+                
+                # Add nodes
+                for i, t in enumerate(tree_data['time_points']):
+                    for j in range(i + 1):
+                        stock_price = tree_data['stock_prices'][j, i]
+                        option_price = tree_data['option_values'][j, i]
+                        
+                        # Node position
+                        x = t
+                        y = j - i/2  # Adjust y for balanced tree
+                        
+                        # Add node
+                        fig.add_trace(go.Scatter(
+                            x=[x], y=[y],
+                            mode='markers+text',
+                            marker=dict(size=30, color='rgba(75, 120, 168, 0.8)'),
+                            text=f"${stock_price:.1f}<br>${option_price:.2f}",
+                            textposition="middle center",
+                            textfont=dict(color='white', size=9),
+                            showlegend=False,
+                            hoverinfo='text',
+                            hovertext=f"Time: {t:.3f}<br>Stock: ${stock_price:.2f}<br>Option: ${option_price:.2f}"
+                        ))
+                        
+                        # Connect with previous nodes
+                        if i > 0:
+                            # Connect to upper node (up factor)
+                            if j > 0:
+                                fig.add_trace(go.Scatter(
+                                    x=[tree_data['time_points'][i-1], x],
+                                    y=[j-1-(i-1)/2, y],
+                                    mode='lines',
+                                    line=dict(width=1, color='rgba(75, 120, 168, 0.6)'),
+                                    showlegend=False
+                                ))
+                            
+                            # Connect to lower node (down factor)
+                            if j < i:
+                                fig.add_trace(go.Scatter(
+                                    x=[tree_data['time_points'][i-1], x],
+                                    y=[j-(i-1)/2, y],
+                                    mode='lines',
+                                    line=dict(width=1, color='rgba(75, 120, 168, 0.6)'),
+                                    showlegend=False
+                                ))
+                
+                # Update layout
+                fig.update_layout(
+                    title=f"Binomial Tree for {params['option_type'].capitalize()} Option (Simplified View)",
+                    xaxis_title="Time (years)",
+                    height=500,
+                    showlegend=False,
+                    hovermode='closest',
+                    xaxis=dict(showgrid=False),
+                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Please select Binomial Tree model and calculate option prices to view the tree.")
 
 # Tab 2: Risk Analysis
 with tab2:
@@ -1689,42 +2140,376 @@ with tab3:
             st.dataframe(export_data.head(10))
 
 # Tab 4: About the app
+# Tab 4: About the app
 with tab4:
     st.header("About This App")
     
-    st.markdown("""
-    ### Options Pricing & Risk Analysis Tool
+    about_tab1, about_tab2, about_tab3, about_tab4 = st.tabs(["Overview", "Option Pricing Models", "Greeks", "Risk Metrics"])
     
-    This app provides a comprehensive set of tools for pricing options and analyzing financial risks. It's built using Python and Streamlit, with real-time data from Yahoo Finance.
-    
-    #### Features:
-    
-    - **Option Pricing Models**:
-        - Black-Scholes model for European options
-        - Monte Carlo simulation
-        - Binomial tree model for both European and American options
+    with about_tab1:
+        st.markdown("""
+        ### Options Pricing & Risk Analysis Tool
         
-    - **Risk Analysis**:
-        - Value at Risk (VaR) and Conditional VaR calculation
-        - Performance metrics like Sharpe ratio and Beta
-        - Historical price and volatility analysis
+        This app provides a comprehensive set of tools for pricing options and analyzing financial risks. It's built using Python and Streamlit, with real-time data from Yahoo Finance.
         
-    - **Market Data**:
-        - Real-time stock and option chain data
-        - Implied volatility visualization
-        - Options greeks analysis
+        #### What are Options?
+        
+        Options are financial derivatives that give the buyer the right, but not the obligation, to buy (call option) or sell (put option) an underlying asset at a specified price (strike price) on or before a specified date (expiration date).
+        
+        **Key Terms:**
+        - **Call Option**: Right to buy the underlying asset
+        - **Put Option**: Right to sell the underlying asset
+        - **Strike Price**: The price at which the option can be exercised
+        - **Expiration Date**: When the option contract ends
+        - **Premium**: The price paid to acquire an option
+        
+        Options are used for various purposes including:
+        - **Hedging**: Protecting against adverse price movements
+        - **Speculation**: Betting on future price movements with leverage
+        - **Income Generation**: Collecting premium by selling options
+        
+        #### Features of This App:
+        
+        - **Option Pricing Models**: Determine the fair value of options using various mathematical models
+        - **Risk Analysis Tools**: Assess potential risks and performance metrics
+        - **Market Data**: Analyze real-time option chains and market conditions
+        
+        #### Technical Implementation:
+        
+        - Built with Python and Streamlit
+        - Data fetched via Yahoo Finance API
+        - Mathematical modeling with NumPy, SciPy, and custom implementations
+        
+        #### Disclaimer:
+        
+        This tool is for educational and informational purposes only. It is not intended to provide investment advice. Always consult with a qualified financial advisor before making investment decisions.
+        """)
     
-    #### Technical Implementation:
+    with about_tab2:
+        st.markdown("""
+        ## Option Pricing Models
+        
+        This app implements three major option pricing models:
+        
+        ### 1. Black-Scholes Model
+        
+        The Black-Scholes model is the foundation of options pricing theory, developed by Fischer Black and Myron Scholes in 1973. It provides a closed-form solution for European options on non-dividend paying stocks.
+        
+        **Intuitive Idea**:
+        The model conceptualizes an option's value based on the idea that the price of the underlying asset follows a geometric Brownian motion (a continuous-time random process). By constructing a risk-free portfolio that combines the option and the underlying asset, the model derives the fair price of the option.
+        
+        **Key Assumptions**:
+        - Markets are efficient (no arbitrage opportunities)
+        - No transaction costs or taxes
+        - Risk-free interest rate is constant
+        - Stock follows a lognormal distribution (returns are normally distributed)
+        - No dividends during the option's life
+        - European-style options (exercise only at expiration)
+        
+        **Mathematical Formula**:
+        
+        For a call option:
+        $$C = S_0 N(d_1) - K e^{-rT} N(d_2)$$
+        
+        For a put option:
+        $$P = K e^{-rT} N(-d_2) - S_0 N(-d_1)$$
+        
+        Where:
+        $$d_1 = \\frac{\\ln(\\frac{S_0}{K}) + (r + \\frac{\\sigma^2}{2})T}{\\sigma\\sqrt{T}}$$
+        
+        $$d_2 = d_1 - \\sigma\\sqrt{T}$$
+        
+        - $S_0$ = Current stock price
+        - $K$ = Strike price
+        - $r$ = Risk-free interest rate
+        - $T$ = Time to maturity (in years)
+        - $\\sigma$ = Volatility of the underlying asset
+        - $N(x)$ = Cumulative distribution function of the standard normal distribution
+        
+        **Limitations**:
+        - Cannot price American options (early exercise)
+        - Assumes constant volatility
+        - Does not account for dividends in its basic form
+        
+        ### 2. Monte Carlo Simulation
+        
+        **Intuitive Idea**:
+        Monte Carlo simulation uses random sampling to estimate the price of options. It simulates thousands of possible price paths for the underlying asset and calculates the average payoff of the option across all these scenarios, then discounts this back to present value.
+        
+        **How It Works**:
+        1. Generate many random price paths for the underlying asset
+        2. Calculate the option payoff at expiration for each path
+        3. Average these payoffs and discount to present value
+        
+        **Mathematical Implementation**:
+        
+        For each simulated path:
+        $$S_{t+\\Delta t} = S_t \\exp\\left((r - \\frac{\\sigma^2}{2})\\Delta t + \\sigma\\sqrt{\\Delta t}Z\\right)$$
+        
+        Where:
+        - $S_t$ = Stock price at time $t$
+        - $\\Delta t$ = Small time increment
+        - $Z$ = Random draw from standard normal distribution
+        
+        The option price is then:
+        $$C = e^{-rT} \\frac{1}{N}\\sum_{i=1}^{N} \\max(S_T^i - K, 0)$$
+        
+        **Advantages**:
+        - Flexible - can handle complex path-dependent options
+        - Can incorporate various stochastic processes
+        - Easy to understand conceptually
+        
+        **Limitations**:
+        - Computationally intensive
+        - Results have statistical error
+        - Convergence can be slow
+        
+        ### 3. Binomial Tree Model
+        
+        **Intuitive Idea**:
+        The binomial model breaks down the time to expiration into discrete intervals. At each interval, the stock price can move up or down by certain factors, creating a "tree" of possible future stock prices. By working backward from the option's value at expiration for each final stock price, we can determine the option's current value.
+        
+        **How It Works**:
+        1. Build a tree of possible stock prices moving forward in time
+        2. Calculate option values at expiration for each final stock price
+        3. Work backward through the tree, calculating option values at each node
+        
+        **Mathematical Implementation**:
+        
+        The stock price moves with up factor $u$ and down factor $d$:
+        $$u = e^{\\sigma\\sqrt{\\Delta t}}$$
+        $$d = e^{-\\sigma\\sqrt{\\Delta t}} = \\frac{1}{u}$$
+        
+        The risk-neutral probability of an up move is:
+        $$p = \\frac{e^{r\\Delta t} - d}{u - d}$$
+        
+        For a European option, the value at each node is:
+        $$V_{i,j} = e^{-r\\Delta t}(pV_{i+1,j+1} + (1-p)V_{i+1,j})$$
+        
+        For an American option, we also check for early exercise:
+        $$V_{i,j} = \\max(e^{-r\\Delta t}(pV_{i+1,j+1} + (1-p)V_{i+1,j}), \\text{Intrinsic Value})$$
+        
+        **Advantages**:
+        - Can price both European and American options
+        - Intuitive and easy to visualize
+        - Can handle early exercise and dividends
+        
+        **Limitations**:
+        - Requires many steps for accuracy
+        - Grows computationally expensive with more steps
+        - Simplified model of stock price movement
+        """)
     
-    - Built with Python and Streamlit
-    - Data fetched via Yahoo Finance API
-    - Computation accuracy targeted at 95%
+    with about_tab3:
+        st.markdown("""
+        ## Option Greeks
+        
+        "Greeks" are sensitivity measures that describe how option prices change with respect to various factors. They're named after Greek letters and are essential tools for risk management.
+        
+        ### Delta (Δ)
+        
+        **Intuitive Explanation**: Delta measures how much an option's price changes when the underlying stock price changes by $1.
+        
+        **Mathematical Formula**:
+        
+        For call options:
+        $$\\Delta_{call} = N(d_1)$$
+        
+        For put options:
+        $$\\Delta_{put} = N(d_1) - 1$$
+        
+        **Practical Interpretation**:
+        - Call delta ranges from 0 to 1
+        - Put delta ranges from -1 to 0
+        - Delta also represents the approximate probability of an option expiring in-the-money
+        - Used for hedging: Delta = 0.5 means you need 50 shares to hedge 1 call option
+        
+        ### Gamma (Γ)
+        
+        **Intuitive Explanation**: Gamma measures how quickly delta changes as the stock price changes. It's the "delta of delta."
+        
+        **Mathematical Formula**:
+        $$\\Gamma = \\frac{N'(d_1)}{S_0 \\sigma \\sqrt{T}}$$
+        
+        Where $N'(d_1)$ is the standard normal probability density function.
+        
+        **Practical Interpretation**:
+        - Same for calls and puts (always positive)
+        - Highest for at-the-money options close to expiration
+        - High gamma means delta changes rapidly with small price movements
+        - Options with high gamma require more frequent rebalancing
+        
+        ### Theta (Θ)
+        
+        **Intuitive Explanation**: Theta measures how much an option's price changes as time passes (time decay).
+        
+        **Mathematical Formula**:
+        
+        For call options:
+        $$\\Theta_{call} = -\\frac{S_0 N'(d_1) \\sigma}{2\\sqrt{T}} - rKe^{-rT}N(d_2)$$
+        
+        For put options:
+        $$\\Theta_{put} = -\\frac{S_0 N'(d_1) \\sigma}{2\\sqrt{T}} + rKe^{-rT}N(-d_2)$$
+        
+        **Practical Interpretation**:
+        - Usually negative (options lose value over time)
+        - Highest for at-the-money options close to expiration
+        - Option sellers benefit from theta decay
+        - Often expressed as daily decay (annual theta divided by 365)
+        
+        ### Vega
+        
+        **Intuitive Explanation**: Vega measures how much an option's price changes when volatility changes by 1%.
+        
+        **Mathematical Formula**:
+        $$\\text{Vega} = S_0 \\sqrt{T} N'(d_1)$$
+        
+        **Practical Interpretation**:
+        - Same for calls and puts (always positive)
+        - Highest for at-the-money options with longer time to expiration
+        - Higher volatility increases option prices
+        - Long options benefit from increasing volatility
+        
+        ### Rho (ρ)
+        
+        **Intuitive Explanation**: Rho measures how much an option's price changes when the risk-free interest rate changes by 1%.
+        
+        **Mathematical Formula**:
+        
+        For call options:
+        $$\\rho_{call} = KTe^{-rT}N(d_2)$$
+        
+        For put options:
+        $$\\rho_{put} = -KTe^{-rT}N(-d_2)$$
+        
+        **Practical Interpretation**:
+        - Usually positive for calls, negative for puts
+        - Most significant for long-term options
+        - Often the least monitored Greek due to relative stability of interest rates
+        """)
     
-    #### Disclaimer:
-    
-    This tool is for educational and informational purposes only. It is not intended to provide investment advice. Always consult with a qualified financial advisor before making investment decisions.
-    """)
-
-# Footer
-st.markdown("---")
-st.markdown("© 2025 Options Pricing & Risk Analysis Tool | Powered by Python, Streamlit, and Yahoo Finance")
+    with about_tab4:
+        st.markdown("""
+        ## Risk Metrics
+        
+        Risk metrics help quantify potential losses and evaluate the risk-adjusted performance of investments.
+        
+        ### Value at Risk (VaR)
+        
+        **Intuitive Explanation**: VaR estimates the maximum potential loss over a specific time period at a given confidence level. For example, a 1-day 95% VaR of $1,000 means there's a 95% chance that losses won't exceed $1,000 over the next day.
+        
+        **Mathematical Approaches**:
+        
+        1. **Historical VaR**:
+           - Sort historical returns
+           - Find the return at the specified percentile (e.g., 5th percentile for 95% confidence)
+           - VaR = Investment Amount × Return at percentile
+        
+        2. **Parametric VaR** (using normal distribution):
+           $$\\text{VaR} = \\text{Investment Amount} × (\\mu - z_{\\alpha} × \\sigma)$$
+           Where:
+           - $\\mu$ = Expected return
+           - $\\sigma$ = Standard deviation of returns
+           - $z_{\\alpha}$ = Z-score for confidence level (e.g., 1.645 for 95%)
+        
+        3. **Monte Carlo VaR**:
+           - Simulate many possible return scenarios
+           - Find the return at the specified percentile
+           - VaR = Investment Amount × Return at percentile
+        
+        **Multi-day VaR** can be approximated using the "square root of time" rule:
+        $$\\text{VaR}_T = \\text{VaR}_1 × \\sqrt{T}$$
+        
+        ### Conditional Value at Risk (CVaR)
+        
+        **Intuitive Explanation**: Also known as Expected Shortfall, CVaR measures the expected loss given that the loss exceeds VaR. It answers the question: "If we have a really bad day (worse than VaR), how bad would it be on average?"
+        
+        **Mathematical Formula**:
+        $$\\text{CVaR}_{\\alpha} = E[X | X ≤ \\text{VaR}_{\\alpha}]$$
+        
+        Where:
+        - $X$ = Random variable representing returns
+        - $\\text{VaR}_{\\alpha}$ = Value at Risk at confidence level $\\alpha$
+        
+        ### Sharpe Ratio
+        
+        **Intuitive Explanation**: The Sharpe ratio measures risk-adjusted return by calculating excess return (over risk-free rate) per unit of risk (standard deviation). Higher is better.
+        
+        **Mathematical Formula**:
+        $$\\text{Sharpe Ratio} = \\frac{R_p - R_f}{\\sigma_p}$$
+        
+        Where:
+        - $R_p$ = Portfolio return
+        - $R_f$ = Risk-free return
+        - $\\sigma_p$ = Portfolio standard deviation
+        
+        **Interpretation**:
+        - Sharpe Ratio > 1: Good
+        - Sharpe Ratio > 2: Very good
+        - Sharpe Ratio > 3: Excellent
+        
+        ### Beta (β)
+        
+        **Intuitive Explanation**: Beta measures an asset's volatility or systematic risk relative to the overall market. A beta of 1 means the asset moves with the market. Higher beta means more volatility.
+        
+        **Mathematical Formula**:
+        $$\\beta = \\frac{\\text{Cov}(r_i, r_m)}{\\text{Var}(r_m)}$$
+        
+        Where:
+        - $r_i$ = Asset returns
+        - $r_m$ = Market returns
+        - Cov = Covariance
+        - Var = Variance
+        
+        **Interpretation**:
+        - β = 1: Moves with the market
+        - β > 1: More volatile than the market
+        - β < 1: Less volatile than the market
+        - β < 0: Moves opposite to the market (rare)
+        
+        ### Maximum Drawdown
+        
+        **Intuitive Explanation**: Maximum drawdown measures the largest peak-to-trough decline in an asset's value, showing the worst-case scenario for an investor who bought at the peak and sold at the bottom.
+        
+        **Mathematical Formula**:
+        $$\\text{MDD} = \\min_{t \\in (0,T)} \\left(\\frac{P_t - \\max_{s \\in (0,t)} P_s}{\\max_{s \\in (0,t)} P_s}\\right)$$
+        
+        Where:
+        - $P_t$ = Price at time $t$
+        
+        **Interpretation**:
+        - Smaller (less negative) is better
+        - Important for understanding worst-case scenarios
+        - Used to assess recovery time and drawdown risk
+        
+        ### Volatility
+        
+        **Intuitive Explanation**: Volatility measures the dispersion of returns for an asset, indicating how much its price fluctuates over time.
+        
+        **Types**:
+        1. **Historical Volatility**: Standard deviation of past returns
+        2. **Implied Volatility**: Derived from option prices in the market
+        
+        **Mathematical Formula** (Historical):
+        $$\\sigma = \\sqrt{\\frac{\\sum_{i=1}^{n}(r_i - \\bar{r})^2}{n-1}}$$
+        
+        Where:
+        - $r_i$ = Return in period $i$
+        - $\\bar{r}$ = Average return
+        - $n$ = Number of periods
+        
+        **Annualization**:
+        $$\\sigma_{\\text{annual}} = \\sigma_{\\text{period}} × \\sqrt{\\text{periods per year}}$$
+        
+        For example, to annualize daily volatility:
+        $$\\sigma_{\\text{annual}} = \\sigma_{\\text{daily}} × \\sqrt{252}$$
+        """)
+# Footer with new styling
+st.markdown(
+    """
+    <div style="margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #272727; text-align: center;">
+        <p style="color: #F7F7F7; font-size: 0.9rem;">© 2025 Options Pricing & Risk Analysis Tool | Built with Python, Streamlit, and Yahoo Finance</p>
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
