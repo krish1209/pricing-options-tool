@@ -514,6 +514,43 @@ st.markdown("""
     .js-plotly-plot .plotly .yaxis path.domain {
         stroke: var(--text-color) !important;
     }
+    /* Model selection multiselect button styling */
+    div[data-baseweb="tag"] {
+        background-color: #FFA726 !important; /* Amber color */
+        border: none !important;
+        border-radius: 4px !important;
+        margin: 3px !important;
+    }
+
+    div[data-baseweb="tag"]:hover {
+        background-color: #704214 !important; /* Brown color */
+        box-shadow: 0 0 5px rgba(255, 167, 38, 0.5) !important;
+    }
+
+    div[data-baseweb="tag"] span {
+        color: #000000 !important; /* Black text */
+        font-weight: 500 !important;
+    }
+
+    div[data-baseweb="tag"] button, div[data-baseweb="tag"] svg {
+        color: #000000 !important;
+        fill: #000000 !important;
+    }
+    /* Model result columns styling */
+    .model-results-column {
+        background-color: #121212 !important;
+        border-radius: 8px !important;
+        border: 1px solid #272727 !important;
+        padding: 15px !important;
+        margin: 0 5px !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    .model-results-column h3 {
+        border-bottom: 2px solid #FFA726 !important;
+        padding-bottom: 8px !important;
+        margin-bottom: 16px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -524,7 +561,7 @@ st.markdown(
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <h1 style="color: #FFA726; margin: 0; font-weight: 700;">Options Pricing & Risk Analysis Tool</h1>
             <div style="display: flex; gap: 15px; align-items: center;">
-                <a href="github.com/krish1209/pricing-options-tool" target="_blank">
+                <a href="https://github.com/krish1209/pricing-options-tool" target="_blank">
                     <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="30" style="filter: invert(1);" />
                 </a>
                 <div style="display: flex; align-items: center; gap: 5px;">
