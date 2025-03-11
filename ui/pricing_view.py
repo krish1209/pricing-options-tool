@@ -3,7 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-import time
+import time as time_module
+import math
 
 from models.black_scholes import black_scholes, black_scholes_greeks
 from models.monte_carlo import monte_carlo_european, monte_carlo_path_generator
@@ -95,9 +96,9 @@ def render_pricing_tab(ticker, current_price, risk_free_rate, implied_vol):
                 
                 if model == "Black-Scholes":
                     # Calculate using Black-Scholes
-                    start_time = time.time()
+                    start_time = time_module.time()
                     bs_price = black_scholes(current_price, strike_price, maturity, rf_rate, volatility, option_type.lower())
-                    end_time = time.time()
+                    end_time = time_module.time()
                     
                     # Calculate Greeks
                     greeks = black_scholes_greeks(current_price, strike_price, maturity, rf_rate, volatility, option_type.lower())
@@ -120,9 +121,9 @@ def render_pricing_tab(ticker, current_price, risk_free_rate, implied_vol):
                 
                 elif model == "Monte Carlo":
                     # Calculate using Monte Carlo
-                    start_time = time.time()
+                    start_time = time_module.time()
                     mc_result = monte_carlo_european(current_price, strike_price, maturity, rf_rate, volatility, option_type.lower(), monte_carlo_sims)
-                    end_time = time.time()
+                    end_time = time_module.time()
                     
                     # Generate Monte Carlo paths for visualization and store in session state
                     time_points, paths = monte_carlo_path_generator(
@@ -149,7 +150,7 @@ def render_pricing_tab(ticker, current_price, risk_free_rate, implied_vol):
                 
                 elif model == "Binomial Tree":
                     # Calculate using Binomial Tree
-                    start_time = time.time()
+                    start_time = time_module.time()
                     
                     # European option
                     bt_euro_price = binomial_tree_european(
@@ -170,7 +171,7 @@ def render_pricing_tab(ticker, current_price, risk_free_rate, implied_vol):
                         option_type.lower(), vis_steps
                     )
                     
-                    end_time = time.time()
+                    end_time = time_module.time()
                     
                     # Display results
                     euro_col, amer_col = st.columns(2)
@@ -196,25 +197,43 @@ def render_pricing_tab(ticker, current_price, risk_free_rate, implied_vol):
         if len(price_results) > 1:
             st.markdown("### Model Comparison")
             
-            fig = go.Figure(data=[
-                go.Bar(
-                    x=list(price_results.keys()),
-                    y=list(price_results.values()),
-                    text=[f"${p:.4f}" for p in price_results.values()],
-                    textposition='auto',
-                    marker_color=['rgba(75, 120, 168, 0.8)'] * len(price_results)
-                )
-            ])
+            # Create columns for each model
+            cols = st.columns(len(price_results))
             
-            fig.update_layout(
-                title=f"{option_type} Option Price Comparison",
-                xaxis_title="Pricing Model",
-                yaxis_title="Option Price ($)",
-                yaxis=dict(range=[0, max(price_results.values()) * 1.2]),
-                height=400
-            )
+            # Use app's native amber/brown colors
+            for i, (model, price) in enumerate(price_results.items()):
+                with cols[i]:
+                    # Using st.markdown with custom CSS for background and text color
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background-color: #FFA726; 
+                            padding: 20px; 
+                            border-radius: 10px; 
+                            text-align: center;
+                            margin: 10px 0;
+                            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+                            border: 2px solid #704214;
+                        ">
+                            <h3 style="color: #000000; font-weight: bold; margin-bottom: 15px;">{model}</h3>
+                            <h2 style="color: #000000; font-weight: bold; font-size: 28px;">${price:.4f}</h2>
+                        </div>
+                        """, 
+                        unsafe_allow_html=True
+                    )
             
-            st.plotly_chart(fig, use_container_width=True)
+            # Add a simple price comparison using Streamlit's metrics
+            st.markdown("#### Price Comparison")
+            metric_cols = st.columns(len(price_results))
+            base_price = list(price_results.values())[0]
+            
+            for i, (model, price) in enumerate(price_results.items()):
+                with metric_cols[i]:
+                    if i == 0:
+                        st.metric(model, f"${price:.4f}")
+                    else:
+                        diff = price - base_price
+                        st.metric(model, f"${price:.4f}", f"{diff:+.4f}")
     
     # VISUALIZATION SECTION - THIS IS COMPLETELY SEPARATE FROM THE CALCULATION
     # Only show visualizations if calculation has been performed
@@ -255,6 +274,8 @@ def render_pricing_tab(ticker, current_price, risk_free_rate, implied_vol):
                 st.info("Please select Monte Carlo model and calculate option prices to view paths.")
         
         # Tab 2: Binomial Tree
+        # Tab 2: Binomial Tree
+        # Tab 2: Binomial Tree
         with viz_tab2:
             if "Binomial Tree" in st.session_state.option_params.get('models', []) and st.session_state.binomial_data is not None:
                 st.subheader("Binomial Tree Visualization")
@@ -263,65 +284,147 @@ def render_pricing_tab(ticker, current_price, risk_free_rate, implied_vol):
                 params = st.session_state.option_params
                 tree_data = st.session_state.binomial_data
                 
-                # Create visualization using Plotly
-                fig = go.Figure()
+                # Prepare node data
+                nodes = []
+                node_x = []
+                node_y = []
+                node_text = []
                 
-                # Add nodes
-                for i, t in enumerate(tree_data['time_points']):
+                # Prepare edge data
+                edge_x = []
+                edge_y = []
+                
+                # Time points define horizontal position
+                time_points = tree_data['time_points']
+                
+                # Calculate positions for all nodes
+                for i, t in enumerate(time_points):
+                    # Each time step gets a column
+                    x_pos = i * 100  # Scale up for better spacing
+                    
+                    # Calculate nodes at this level
                     for j in range(i + 1):
+                        # Position nodes in a triangle formation
+                        y_pos = (j - i/2) * 100  # Scale up for better spacing
+                        
+                        # Get values for this node
                         stock_price = tree_data['stock_prices'][j, i]
                         option_price = tree_data['option_values'][j, i]
                         
-                        # Node position
-                        x = t
-                        y = j - i/2  # Adjust y for balanced tree
+                        # Store node positions
+                        node_x.append(x_pos)
+                        node_y.append(y_pos)
+                        node_text.append(f"Time: {t:.3f}<br>Stock: ${stock_price:.2f}<br>Option: ${option_price:.2f}")
                         
-                        # Add node
-                        fig.add_trace(go.Scatter(
-                            x=[x], y=[y],
-                            mode='markers+text',
-                            marker=dict(size=30, color='rgba(75, 120, 168, 0.8)'),
-                            text=f"${stock_price:.1f}<br>${option_price:.2f}",
-                            textposition="middle center",
-                            textfont=dict(color='white', size=9),
-                            showlegend=False,
-                            hoverinfo='text',
-                            hovertext=f"Time: {t:.3f}<br>Stock: ${stock_price:.2f}<br>Option: ${option_price:.2f}"
-                        ))
-                        
-                        # Connect with previous nodes
+                        # Create edges to previous nodes
                         if i > 0:
-                            # Connect to upper node (up factor)
+                            # Connect to upper parent (if exists)
                             if j > 0:
-                                fig.add_trace(go.Scatter(
-                                    x=[tree_data['time_points'][i-1], x],
-                                    y=[j-1-(i-1)/2, y],
-                                    mode='lines',
-                                    line=dict(width=1, color='rgba(75, 120, 168, 0.6)'),
-                                    showlegend=False
-                                ))
+                                # Draw edge: previous node to current node
+                                edge_x.extend([i-1 * 100, x_pos, None])
+                                edge_y.extend([(j-1-(i-1)/2) * 100, y_pos, None])
                             
-                            # Connect to lower node (down factor)
+                            # Connect to lower parent (if exists)
                             if j < i:
-                                fig.add_trace(go.Scatter(
-                                    x=[tree_data['time_points'][i-1], x],
-                                    y=[j-(i-1)/2, y],
-                                    mode='lines',
-                                    line=dict(width=1, color='rgba(75, 120, 168, 0.6)'),
-                                    showlegend=False
-                                ))
+                                # Draw edge: previous node to current node
+                                edge_x.extend([i-1 * 100, x_pos, None])
+                                edge_y.extend([(j-(i-1)/2) * 100, y_pos, None])
                 
-                # Update layout
+                # Create a blank figure with more explicit sizing
+                fig = go.Figure()
+                
+                # Add the nodes as scatter points
+                fig.add_trace(go.Scatter(
+                    x=node_x, 
+                    y=node_y,
+                    mode='markers+text',
+                    marker=dict(
+                        size=40,
+                        color='#FFA726',
+                        line=dict(width=2, color='#704214')
+                    ),
+                    text=[f"${tree_data['option_values'][j, i]:.2f}" for i, t in enumerate(time_points) for j in range(i + 1)],
+                    textposition="middle center",
+                    textfont=dict(size=12, color='black'),
+                    hoverinfo='text',
+                    hovertext=node_text,
+                    name='Nodes'
+                ))
+                
+                # Add the edges as lines
+                for i, t in enumerate(time_points):
+                    if i == 0:
+                        continue  # Skip the root node
+                        
+                    for j in range(i + 1):
+                        # Current node position
+                        x1 = i * 100
+                        y1 = (j - i/2) * 100
+                        
+                        # Connect to upper parent (if exists)
+                        if j > 0:
+                            x0 = (i-1) * 100
+                            y0 = (j-1-(i-1)/2) * 100
+                            
+                            fig.add_trace(go.Scatter(
+                                x=[x0, x1],
+                                y=[y0, y1],
+                                mode='lines',
+                                line=dict(width=2, color='#704214'),
+                                hoverinfo='none',
+                                showlegend=False
+                            ))
+                        
+                        # Connect to lower parent (if exists)
+                        if j < i:
+                            x0 = (i-1) * 100
+                            y0 = (j-(i-1)/2) * 100
+                            
+                            fig.add_trace(go.Scatter(
+                                x=[x0, x1],
+                                y=[y0, y1],
+                                mode='lines',
+                                line=dict(width=2, color='#704214'),
+                                hoverinfo='none',
+                                showlegend=False
+                            ))
+                
+                # Update layout with explicit settings
                 fig.update_layout(
-                    title=f"Binomial Tree for {params['option_type'].capitalize()} Option (Simplified View)",
-                    xaxis_title="Time (years)",
-                    height=500,
+                    width=800,
+                    height=600,
+                    title="Binomial Tree Visualization",
+                    title_font_color='white',
                     showlegend=False,
                     hovermode='closest',
-                    xaxis=dict(showgrid=False),
-                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)
+                    margin=dict(b=20, l=5, r=5, t=40),
+                    xaxis=dict(
+                        showgrid=False, 
+                        zeroline=False, 
+                        showticklabels=False,
+                        range=[-50, max(node_x) + 50]
+                    ),
+                    yaxis=dict(
+                        showgrid=False, 
+                        zeroline=False, 
+                        showticklabels=False,
+                        range=[min(node_y) - 50, max(node_y) + 50],
+                        scaleanchor='x', 
+                        scaleratio=1
+                    ),
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
                 )
                 
+                # Display the figure with a larger size
                 st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Please select Binomial Tree model and calculate option prices to view the tree.")
+                
+                # Add explanatory text
+                st.markdown("""
+                ### Tree Interpretation
+                - Each node shows the option price at that state
+                - Hover over nodes to see detailed information
+                - Top branches represent upward price movements
+                - Bottom branches represent downward price movements
+                - Time moves from left to right
+                """)
