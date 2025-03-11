@@ -1,0 +1,163 @@
+/* static/css/dark/animations.css */
+
+/* Define keyframes */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes shimmer {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
+}
+
+/* Apply animations to elements */
+
+/* Fade in main content */
+.stApp {
+    animation: fadeIn var(--transition-normal) var(--easing-standard);
+}
+
+/* Slide in metrics */
+[data-testid="stMetricValue"] {
+    animation: slideInRight var(--transition-normal) var(--easing-decelerate);
+}
+
+/* Slide up cards */
+.card {
+    animation: slideInUp var(--transition-normal) var(--easing-standard);
+}
+
+/* Pulse effect for important buttons */
+.important-button:hover {
+    animation: pulse var(--transition-normal) var(--easing-standard) infinite;
+}
+
+/* Loading shimmer effect */
+.loading-shimmer {
+    background: linear-gradient(90deg, 
+        rgba(255, 255, 255, 0.03), 
+        rgba(255, 255, 255, 0.08), 
+        rgba(255, 255, 255, 0.03));
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite linear;
+}
+
+/* Stagger delays for lists of items */
+.staggered-list > *:nth-child(1) { animation-delay: 0ms; }
+.staggered-list > *:nth-child(2) { animation-delay: 50ms; }
+.staggered-list > *:nth-child(3) { animation-delay: 100ms; }
+.staggered-list > *:nth-child(4) { animation-delay: 150ms; }
+.staggered-list > *:nth-child(5) { animation-delay: 200ms; }
+.staggered-list > *:nth-child(6) { animation-delay: 250ms; }
+.staggered-list > *:nth-child(7) { animation-delay: 300ms; }
+.staggered-list > *:nth-child(8) { animation-delay: 350ms; }
+.staggered-list > *:nth-child(9) { animation-delay: 400ms; }
+.staggered-list > *:nth-child(10) { animation-delay: 450ms; }
+
+/* Hover effects */
+.hover-scale {
+    transition: transform var(--transition-fast) var(--easing-standard);
+}
+
+.hover-scale:hover {
+    transform: scale(1.03);
+}
+
+.hover-elevate {
+    transition: transform var(--transition-fast) var(--easing-standard),
+                box-shadow var(--transition-fast) var(--easing-standard);
+}
+
+.hover-elevate:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Transition for tabs */
+.stTabs [data-baseweb="tab"] {
+    transition: background-color var(--transition-fast) var(--easing-standard),
+                color var(--transition-fast) var(--easing-standard);
+}
+
+/* Animate metrics when they change */
+[data-testid="stMetricValue"]:not(:empty) {
+    transition: transform var(--transition-fast) var(--easing-standard);
+}
+
+[data-testid="stMetricValue"]:not(:empty):before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--color-primary);
+    opacity: 0.2;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--transition-fast) var(--easing-accelerate);
+    z-index: -1;
+}
+
+[data-testid="stMetricValue"].updated:not(:empty):before {
+    transform: scaleX(1);
+    opacity: 0;
+    transition: transform var(--transition-fast) var(--easing-accelerate),
+                opacity var(--transition-normal) var(--easing-standard);
+}
+
+/* Button animations */
+.stButton > button {
+    position: relative;
+    overflow: hidden;
+}
+
+.stButton > button::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 5px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.5);
+    opacity: 0;
+    border-radius: 100%;
+    transform: scale(1, 1) translate(-50%);
+    transform-origin: 50% 50%;
+}
+
+.stButton > button:active::after {
+    opacity: 0.3;
+    transform: scale(80, 80) translate(-50%);
+    transition: transform var(--transition-slow) var(--easing-decelerate),
+                opacity var(--transition-slow) var(--easing-decelerate);
+}

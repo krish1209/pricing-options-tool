@@ -1,0 +1,160 @@
+/* static/css/dark/tables.css */
+
+/* Enhanced Tables for Financial Data */
+
+/* Base table styling */
+.dataframe {
+    width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    border-radius: var(--border-radius-lg) !important;
+    overflow: hidden;
+    margin: var(--space-4) 0;
+    border: 1px solid var(--color-border) !important;
+    box-shadow: var(--shadow-md);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm) !important;
+}
+
+/* Headers */
+.dataframe thead th {
+    background-color: var(--color-surface-raised) !important;
+    color: var(--color-primary) !important;
+    font-weight: 600 !important;
+    padding: var(--space-3) var(--space-4) !important;
+    text-align: left !important;
+    border-bottom: 2px solid var(--color-border) !important;
+    font-size: var(--font-size-sm) !important;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* Rows */
+.dataframe tbody tr {
+    transition: background-color var(--transition-fast) var(--easing-standard);
+}
+
+.dataframe tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.dataframe tbody tr:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Cells */
+.dataframe tbody td {
+    padding: var(--space-2) var(--space-4) !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    color: var(--color-text-primary) !important;
+    background-color: transparent !important;
+}
+
+/* Fixed height scrollable tables */
+[data-testid="stDataFrame"] > div {
+    max-height: 500px !important;
+    overflow: auto !important;
+}
+
+/* Sticky headers */
+.dataframe thead th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: var(--z-index-base) !important;
+}
+
+/* Additional styling for options tables */
+
+/* Call Options Table */
+.call-options-table th {
+    background-color: rgba(76, 175, 80, 0.2) !important;
+    color: var(--color-text-primary) !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+}
+
+.call-options-table td {
+    text-align: right !important;
+}
+
+/* ITM Call highlighting */
+.call-itm {
+    background-color: rgba(76, 175, 80, 0.15) !important;
+}
+
+/* Put Options Table */
+.put-options-table th {
+    background-color: rgba(244, 67, 54, 0.2) !important;
+    color: var(--color-text-primary) !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+}
+
+.put-options-table td {
+    text-align: right !important;
+}
+
+/* ITM Put highlighting */
+.put-itm {
+    background-color: rgba(244, 67, 54, 0.15) !important;
+}
+
+/* Greeks Table */
+.greeks-table th {
+    background-color: rgba(33, 150, 243, 0.2) !important;
+}
+
+/* Risk Metrics Table */
+.risk-metrics-table th {
+    background-color: rgba(156, 39, 176, 0.2) !important;
+}
+
+/* Numeric value formatting */
+.numeric-cell {
+    font-family: var(--font-family-mono);
+    text-align: right !important;
+}
+
+/* For positive values (green) */
+.positive-value {
+    color: #4CAF50 !important;
+}
+
+/* For negative values (red) */
+.negative-value {
+    color: #F44336 !important;
+}
+
+/* Highlight current strike price */
+.current-strike {
+    font-weight: bold !important;
+    border-left: 3px solid var(--color-primary) !important;
+}
+
+/* Strategy table */
+.strategy-table th {
+    background-color: rgba(255, 167, 38, 0.2) !important;
+}
+
+.strategy-table td:first-child {
+    font-weight: 500;
+}
+
+/* Conditional formatting for VaR/metrics tables */
+.risk-level-low {
+    background-color: rgba(76, 175, 80, 0.1) !important;
+}
+
+.risk-level-medium {
+    background-color: rgba(255, 152, 0, 0.1) !important;
+}
+
+.risk-level-high {
+    background-color: rgba(244, 67, 54, 0.1) !important;
+}
+
+/* Heatmap-style background coloring for percentage values */
+.heatmap-cell {
+    background-color: rgba(255, 167, 38, var(--opacity)) !important;
+    --opacity: 0.1; /* Default, will be overridden by inline style */
+}

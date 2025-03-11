@@ -4,7 +4,9 @@ from ui.risk_view import render_risk_tab
 from ui.market_view import render_market_tab
 from ui.strategy_view import render_strategy_view
 from ui.models_view import render_models_view
-from utils.config import setup_app, setup_sidebar
+from utils.config import setup_sidebar
+from utils.styling import load_theme
+import os
 
 def main():
     # Set page config
@@ -15,8 +17,30 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    # Apply styling and header
-    setup_app()
+    # Apply dark theme CSS
+    load_theme()
+    
+    # Add custom header with logo
+    st.markdown(
+        """
+        <div class="header">
+            <div class="header-content">
+                <h1>Options Pricing & Risk Analysis Tool</h1>
+                <p>Analyze options using various pricing models and evaluate financial risk metrics</p>
+            </div>
+            <div class="header-links">
+                <span style="color: var(--color-text-primary); margin-right: 15px;">Created by Krish Bagga</span>
+                <a href="https://github.com/krish1209/pricing-options-tool" target="_blank" style="margin-right: 15px;">
+                    <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="38" />
+                </a>
+                <a href="https://www.linkedin.com/in/krishbagga/" target="_blank">
+                    <img src="https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Bug.svg.original.svg" width="35" />
+                </a>
+            </div>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
     
     # Set up the sidebar with common controls
     ticker, current_price, risk_free_rate, implied_vol = setup_sidebar()
@@ -49,12 +73,23 @@ def main():
     # Footer
     st.markdown(
         """
-        <div style="margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #272727; text-align: center;">
-            <p style="color: #F7F7F7; font-size: 0.9rem;">© 2025 Options Pricing & Risk Analysis Tool | Built with Python, Streamlit, and Yahoo Finance</p>
+        <div class="footer">
+            <p>© 2025 Options Pricing & Risk Analysis Tool</p>
+            <p>Built with Python, Streamlit, and Yahoo Finance</p>
         </div>
         """, 
         unsafe_allow_html=True
     )
 
+# Ensure the CSS directory exists
+def setup_css_directory():
+    # Get the directory of the current script
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Define CSS directory
+    css_dir = os.path.join(current_dir, "static", "css", "dark")
+    os.makedirs(css_dir, exist_ok=True)
+
 if __name__ == "__main__":
+    setup_css_directory()
     main()

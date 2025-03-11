@@ -1,0 +1,266 @@
+/* static/css/dark/charts.css */
+
+/* General styling for all chart containers */
+[data-testid="stDecoration"],
+.element-container div[data-testid="stVerticalBlock"] > div {
+    background-color: var(--color-surface) !important;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    transition: transform var(--transition-fast) var(--easing-standard),
+                box-shadow var(--transition-fast) var(--easing-standard);
+}
+
+/* Hover effect for charts */
+[data-testid="stDecoration"]:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Plotly-specific styling */
+.js-plotly-plot .plotly {
+    font-family: var(--font-family-base) !important;
+}
+
+/* Main SVG background */
+.js-plotly-plot .plotly .main-svg {
+    background-color: transparent !important;
+}
+
+/* Chart background */
+.js-plotly-plot .plotly .main-svg .plot {
+    background-color: transparent !important;
+}
+
+/* Axis colors */
+.js-plotly-plot .plotly .xaxis .xtick text,
+.js-plotly-plot .plotly .yaxis .ytick text {
+    fill: var(--color-text-secondary) !important;
+    font-size: 11px !important;
+}
+
+/* Axis lines and grid */
+.js-plotly-plot .plotly .xaxis path.domain,
+.js-plotly-plot .plotly .yaxis path.domain {
+    stroke: var(--color-border) !important;
+    stroke-width: 1 !important;
+}
+
+.js-plotly-plot .plotly .gridlayer path {
+    stroke: rgba(255, 255, 255, 0.05) !important;
+    stroke-width: 1 !important;
+}
+
+/* Legends */
+.js-plotly-plot .plotly .legend text {
+    fill: var(--color-text-primary) !important;
+    font-size: 12px !important;
+}
+
+.js-plotly-plot .plotly .legend rect {
+    stroke: var(--color-border) !important;
+}
+
+/* Default line colors for financial charts */
+.js-plotly-plot .plotly .scatterlayer .trace:nth-child(1) .lines path {
+    stroke: var(--color-primary) !important;
+}
+
+.js-plotly-plot .plotly .scatterlayer .trace:nth-child(2) .lines path {
+    stroke: #00BCD4 !important; /* Cyan */
+}
+
+.js-plotly-plot .plotly .scatterlayer .trace:nth-child(3) .lines path {
+    stroke: #4CAF50 !important; /* Green */
+}
+
+.js-plotly-plot .plotly .scatterlayer .trace:nth-child(4) .lines path {
+    stroke: #F44336 !important; /* Red */
+}
+
+.js-plotly-plot .plotly .scatterlayer .trace:nth-child(5) .lines path {
+    stroke: #9C27B0 !important; /* Purple */
+}
+
+/* Axis titles */
+.js-plotly-plot .plotly .xtitle text,
+.js-plotly-plot .plotly .ytitle text {
+    fill: var(--color-text-primary) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+}
+
+/* Chart title */
+.js-plotly-plot .plotly .gtitle text {
+    fill: var(--color-primary) !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+}
+
+/* Hover info styles */
+.js-plotly-plot .plotly .hoverlayer .hover {
+    fill: var(--color-surface-raised) !important;
+    stroke: var(--color-border) !important;
+    rx: 4 !important; /* Rounded corners */
+}
+
+.js-plotly-plot .plotly .hoverlayer .hover text {
+    fill: var(--color-text-primary) !important;
+}
+
+.js-plotly-plot .plotly .hoverlayer .hover .hovertext {
+    fill: var(--color-text-primary) !important;
+}
+
+/* Bar charts */
+.js-plotly-plot .plotly .bars path {
+    opacity: 0.8 !important;
+}
+
+/* Candlestick chart styling */
+.js-plotly-plot .plotly .trace.ohlc path.js-line {
+    stroke-width: 2 !important;
+}
+
+.js-plotly-plot .plotly .increasing path.js-line {
+    stroke: #4CAF50 !important; /* Green for increasing */
+}
+
+.js-plotly-plot .plotly .decreasing path.js-line {
+    stroke: #F44336 !important; /* Red for decreasing */
+}
+
+/* Heatmap styling */
+.js-plotly-plot .plotly .heatmap {
+    opacity: 0.9 !important;
+}
+
+/* Special styling for financial charts */
+
+/* Volume bars with reduced opacity */
+.js-plotly-plot .plotly .volume-trace path {
+    opacity: 0.4 !important;
+}
+
+/* Bollinger bands */
+.js-plotly-plot .plotly .bollinger-upper path,
+.js-plotly-plot .plotly .bollinger-lower path {
+    stroke-dasharray: 4,2 !important;
+    opacity: 0.7 !important;
+}
+
+.js-plotly-plot .plotly .bollinger-mid path {
+    stroke-width: 2 !important;
+}
+
+/* Moving averages */
+.js-plotly-plot .plotly .ma-trace path {
+    stroke-width: 2 !important;
+}
+
+/* RSI indicator */
+.js-plotly-plot .plotly .rsi-trace path {
+    stroke-width: 2 !important;
+}
+
+.js-plotly-plot .plotly .rsi-overbought path,
+.js-plotly-plot .plotly .rsi-oversold path {
+    stroke-dasharray: 2,2 !important;
+    opacity: 0.7 !important;
+}
+
+/* Support and resistance levels */
+.js-plotly-plot .plotly .support-line path {
+    stroke: #4CAF50 !important;
+    stroke-width: 1.5 !important;
+    stroke-dasharray: 6,3 !important;
+}
+
+.js-plotly-plot .plotly .resistance-line path {
+    stroke: #F44336 !important;
+    stroke-width: 1.5 !important;
+    stroke-dasharray: 6,3 !important;
+}
+
+/* Monte Carlo paths */
+.js-plotly-plot .plotly .monte-carlo-paths path {
+    opacity: 0.3 !important;
+}
+
+.js-plotly-plot .plotly .monte-carlo-mean path {
+    stroke-width: 3 !important;
+    stroke: white !important;
+}
+
+/* VaR visualization */
+.js-plotly-plot .plotly .var-line path {
+    stroke: #F44336 !important;
+    stroke-width: 2 !important;
+    stroke-dasharray: 4,2 !important;
+}
+
+.js-plotly-plot .plotly .cvar-line path {
+    stroke: #9C27B0 !important;
+    stroke-width: 2 !important;
+    stroke-dasharray: 4,2 !important;
+}
+
+/* Option payoff diagrams */
+.js-plotly-plot .plotly .payoff-line path {
+    stroke-width: 3 !important;
+}
+
+.js-plotly-plot .plotly .breakeven-point {
+    opacity: 0.8 !important;
+}
+
+/* Improved stock chart */
+.stock-chart {
+    height: 500px;
+}
+
+.stock-chart .js-plotly-plot {
+    margin-bottom: var(--space-4);
+}
+
+/* Add a subtle gradient overlay to charts */
+.chart-gradient::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, 
+                              rgba(255, 167, 38, 0.05) 0%, 
+                              transparent 50%, 
+                              rgba(76, 175, 80, 0.05) 100%);
+    pointer-events: none;
+    border-radius: var(--border-radius-lg);
+}
+
+/* Better tooltips in Plotly */
+.plotly-tooltip {
+    background-color: var(--color-surface-raised) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--border-radius-md) !important;
+    padding: var(--space-2) var(--space-3) !important;
+    color: var(--color-text-primary) !important;
+    font-family: var(--font-family-base) !important;
+    font-size: var(--font-size-sm) !important;
+    max-width: 300px !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+
+/* Better 3D plots */
+.js-plotly-plot .plotly .surface {
+    opacity: 0.9 !important;
+}
+
+/* Make axis titles visible on dark backgrounds */
+.js-plotly-plot .plotly .g-xtitle, 
+.js-plotly-plot .plotly .g-ytitle, 
+.js-plotly-plot .plotly .g-ztitle {
+    fill: var(--color-text-primary) !important;
+}
