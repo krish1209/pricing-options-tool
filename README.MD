@@ -1,13 +1,6 @@
 # Options Pricing & Risk Analysis Tool
 
-[![Python 3.10](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.27.0-FF4B4B.svg)](https://streamlit.io)
-[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED.svg)](https://www.docker.com/)
-[![GCP](https://img.shields.io/badge/GCP-Compatible-4285F4.svg)](https://cloud.google.com/)
-
 A comprehensive Python application for pricing European options using Black-Scholes, Monte Carlo simulation, and Binomial tree models, with integrated risk metrics analysis and real-time market data visualization.
-
-![Options Pricing App Demo](https://via.placeholder.com/800x400?text=Options+Pricing+Dashboard)
 
 ## 🚀 Features
 
@@ -34,29 +27,12 @@ A comprehensive Python application for pricing European options using Black-Scho
   - Real-time calculation and updates
   - Data export capabilities
 
-- **Enterprise-Ready Deployment**:
-  - Dockerized for consistent deployment
-  - Google Cloud Platform integration
-  - 100% compatibility with modern cloud infrastructure
+## 📊 Key Visualizations
 
-## 📊 Screenshots
-
-<details>
-<summary>Click to expand screenshots</summary>
-
-### Option Pricing Models Comparison
-![Pricing Models](https://via.placeholder.com/700x350?text=Option+Pricing+Models)
-
-### Risk Analysis Dashboard
-![Risk Analysis](https://via.placeholder.com/700x350?text=Risk+Analysis+Dashboard)
-
-### Volatility Surface
-![Volatility Surface](https://via.placeholder.com/700x350?text=Implied+Volatility+Surface)
-
-### Option Greeks Visualization
-![Option Greeks](https://via.placeholder.com/700x350?text=Option+Greeks+Visualization)
-
-</details>
+- **Option Pricing Models Comparison**: Visual comparison of prices from different models
+- **Risk Analysis Dashboard**: Interactive VaR, CVaR and performance metrics
+- **Implied Volatility Surface**: 3D visualization of volatility across strikes and expirations
+- **Option Greeks Visualization**: Interactive plots of Delta, Gamma, Theta, and Vega
 
 ## 🛠️ Technologies
 
@@ -64,17 +40,12 @@ A comprehensive Python application for pricing European options using Black-Scho
 - **Financial Modeling**: Black-Scholes, Monte Carlo, Binomial Tree implementations
 - **Data Source**: Yahoo Finance API via yfinance
 - **Visualization**: Streamlit, Plotly, Matplotlib
-- **Deployment**: Docker, Google Cloud Platform (Cloud Run)
 
 ## 📋 Prerequisites
 
 - Python 3.9+ (3.10 recommended)
-- Docker (for containerized deployment)
-- Google Cloud SDK (for GCP deployment)
 
 ## 🔧 Installation
-
-### Method 1: Local Python Installation
 
 ```bash
 # Clone the repository
@@ -92,26 +63,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-### Method 2: Docker (Recommended)
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/options-pricing-app.git
-cd options-pricing-app
-
-# Build and run with Docker Compose
-docker-compose up --build
-
-# Alternatively, use Docker directly
-docker build -t options-pricing-app .
-docker run -p 8501:8501 options-pricing-app
-```
-
 The application will be available at http://localhost:8501
-
-### Method 3: Google Cloud Platform Deployment
-
-See the [GCP Deployment Guide](./docs/gcp-deployment.md) for detailed instructions.
 
 ## 📂 Project Structure
 
@@ -126,10 +78,21 @@ options_pricing_app/
 ├── data/                    # Data integration
 │   ├── __init__.py
 │   └── yahoo_finance.py     # Yahoo Finance API integration
+├── ui/                      # User interface components 
+│   ├── __init__.py
+│   ├── pricing_view.py      # Option pricing view
+│   ├── risk_view.py         # Risk analysis view
+│   ├── market_view.py       # Market data view
+│   └── strategy_view.py     # Strategy builder view
+├── utils/                   # Utility functions
+│   ├── __init__.py
+│   ├── config.py            # Configuration utilities
+│   ├── styling.py           # UI styling utilities
+│   └── caching.py           # Data caching utilities
+├── static/                  # Static assets
+│   └── css/                 # CSS styling
 ├── app.py                   # Main Streamlit application
 ├── requirements.txt         # Python dependencies
-├── Dockerfile               # Docker configuration
-├── docker-compose.yml       # Docker Compose setup
 └── README.md                # You are here!
 ```
 
@@ -159,35 +122,28 @@ options_pricing_app/
 4. Analyze option Greeks for different strike prices
 5. Export data for further analysis
 
-## 🔄 Deployment Options
+### Strategy Builder
 
-### Local Development
+1. Navigate to the "Strategy Builder" tab
+2. Select from predefined strategies or create a custom strategy
+3. Adjust parameters and view the payoff diagram
+4. Analyze risk metrics and break-even points
+5. Understand strategy interpretations and use cases
 
-Run with Streamlit for local development and testing:
+### Advanced Models
+
+1. Go to the "Advanced Models" tab
+2. Explore the Heston stochastic volatility model
+3. Adjust model parameters and view Monte Carlo simulations
+4. Visualize the implied volatility surface
+5. Compare with the standard Black-Scholes model
+
+## 🔄 Deployment
+
+For local development and use:
 
 ```bash
 streamlit run app.py
-```
-
-### Docker Deployment
-
-```bash
-docker-compose up
-```
-
-### Google Cloud Run Deployment
-
-Deploy to GCP Cloud Run for scalable, serverless hosting:
-
-```bash
-# Build and tag the image
-docker build -t gcr.io/[PROJECT_ID]/options-pricing-app .
-
-# Push to Google Container Registry
-docker push gcr.io/[PROJECT_ID]/options-pricing-app
-
-# Deploy to Cloud Run
-gcloud run deploy options-pricing-app --image gcr.io/[PROJECT_ID]/options-pricing-app --platform managed
 ```
 
 ## 📝 License
